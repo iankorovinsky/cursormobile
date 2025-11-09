@@ -1,14 +1,38 @@
 (() => {
+    // Cleanup any existing observer from previous runs
+    if (window.cursorObserver) {
+      console.warn('🧹 Cleaning up previous observer...');
+      window.cursorObserver.disconnect();
+      window.cursorObserver = null;
+    }
+    
+    // Clear console for fresh start
+    console.clear();
+    
     /** Utility: decode HTML entities safely */
     function decodeHtml(html) {
-      try {
-        const txt = document.createElement('textarea');
-        txt.textContent = html;
-        return txt.value;
-      } catch (e) {
-        // Fallback if Trusted Types blocks this
-        return html;
+      // Manual entity decoding to avoid Trusted Types issues
+      const entities = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#39;': "'",
+        '&#x27;': "'",
+        '&nbsp;': ' ',
+        '&#x2F;': '/'
+      };
+      
+      let decoded = html;
+      for (const [entity, char] of Object.entries(entities)) {
+        decoded = decoded.replace(new RegExp(entity, 'g'), char);
       }
+      
+      // Decode numeric entities like &#123;
+      decoded = decoded.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
+      decoded = decoded.replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+      
+      return decoded;
     }
   
     /** Extract text for a single markdown section */
@@ -69,52 +93,54 @@
     // expose for later use
     window.cursorMessages = messages;
   
-    /** Debounce helper for streaming updates */
-    const debounceTimers = new Map();
-    const completionTimers = new Map();
-    const completedMessages = new Set();
+  
+    /** Track message polling intervals */
+    const pollingIntervals = new Map();
+    const lastMessageContent = new Map();
     
-    function debounce(key, callback, delay = 300) {
-      if (debounceTimers.has(key)) {
-        clearTimeout(debounceTimers.get(key));
-      }
-      debounceTimers.set(key, setTimeout(() => {
-        callback();
-        debounceTimers.delete(key);
-      }, delay));
-    }
-    
-    function markCompleteAfterDelay(index, bubble) {
-      // Clear existing completion timer
-      if (completionTimers.has(index)) {
-        clearTimeout(completionTimers.get(index));
+    function startPollingMessage(bubble) {
+      const index = bubble.getAttribute('data-message-index');
+      
+      // Clear existing interval if any
+      if (pollingIntervals.has(index)) {
+        clearInterval(pollingIntervals.get(index));
       }
       
-      // Set new timer - if no updates for 2s, mark complete
-      completionTimers.set(index, setTimeout(() => {
-        if (!completedMessages.has(index)) {
-          completedMessages.add(index);
-          const msg = extractMessage(bubble);
+      const interval = setInterval(() => {
+        const msg = extractMessage(bubble);
+        const lastContent = lastMessageContent.get(index);
+        
+        if (lastContent === msg.text) {
+          // Content hasn't changed - it's done streaming
+          clearInterval(interval);
+          pollingIntervals.delete(index);
+          lastMessageContent.delete(index);
           
-          // Update in array with completed flag
+          // Update final message in array
           const idx = window.cursorMessages.findIndex(m => m.index === index);
           if (idx !== -1) {
-            window.cursorMessages[idx] = { ...msg, completed: true };
+            window.cursorMessages[idx] = msg;
+          } else {
+            window.cursorMessages.push(msg);
           }
           
-          console.warn(`✅ COMPLETE [${msg.index}]`);
-          console.log(msg.text || '(empty)');
+          console.warn(`🔔 NEW MESSAGE [${msg.index}]:`);
+          console.warn(msg.text || '(empty)');
+        } else {
+          // Content changed - keep polling
+          lastMessageContent.set(index, msg.text);
         }
-        completionTimers.delete(index);
-      }, 2000));
+      }, 2000);
+      
+      pollingIntervals.set(index, interval);
     }
-  
-    /** Set up MutationObserver to watch for new messages and updates */
+    
+    /** Set up MutationObserver to watch for new messages only */
     const observer = new MutationObserver((mutations) => {
       const affectedBubbles = new Set();
       
       mutations.forEach(mutation => {
-        // Handle new nodes being added
+        // Only handle new nodes being added
         mutation.addedNodes.forEach(node => {
           // Check if the node itself is a message bubble
           if (node.nodeType === 1 && node.hasAttribute && node.hasAttribute('data-message-index')) {
@@ -127,66 +153,24 @@
             newBubbles.forEach(bubble => affectedBubbles.add(bubble));
           }
         });
-        
-        // Handle changes to existing nodes (streaming content updates)
-        if (mutation.type === 'characterData' || mutation.type === 'attributes' || mutation.type === 'childList') {
-          // Walk up to find the message bubble
-          let elem = mutation.target;
-          while (elem && elem !== document.body) {
-            if (elem.hasAttribute && elem.hasAttribute('data-message-index')) {
-              affectedBubbles.add(elem);
-              break;
-            }
-            elem = elem.parentElement;
-          }
-        }
       });
       
-      // Process all affected bubbles
+      // Process new bubbles only
       affectedBubbles.forEach(bubble => {
         const index = bubble.getAttribute('data-message-index');
         
         if (!seenIndices.has(index)) {
-          // Brand new message
+          // Brand new message - start polling it
           seenIndices.add(index);
-          const msg = extractMessage(bubble);
-          window.cursorMessages.push(msg);
-          
-          console.warn(`🔔 NEW MESSAGE [${msg.index}]`);
-          console.log(msg.text || '(empty)');
-          
-          // Start completion tracking
-          markCompleteAfterDelay(index, bubble);
-        } else {
-          // Existing message being updated (streaming)
-          // Remove from completed set if it was marked complete (edge case)
-          completedMessages.delete(index);
-          
-          debounce(`update-${index}`, () => {
-            const msg = extractMessage(bubble);
-            // Update in array
-            const idx = window.cursorMessages.findIndex(m => m.index === index);
-            if (idx !== -1) {
-              window.cursorMessages[idx] = msg;
-            }
-            
-            console.warn(`📝 UPDATE [${msg.index}]`);
-            console.log(msg.text || '(empty)');
-          }, 500);
-          
-          // Reset completion timer on every update
-          markCompleteAfterDelay(index, bubble);
+          startPollingMessage(bubble);
         }
       });
     });
   
-    // Start observing the document body for new messages and content changes
+    // Start observing the document body for new messages
     observer.observe(document.body, {
       childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ['data-markdown-raw']
+      subtree: true
     });
   
     console.warn('👁️ Watching for new messages...');
