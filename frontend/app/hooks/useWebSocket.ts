@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { getRelayServerUrl } from '@/app/lib/config';
 
 export interface Message {
   id: string;
@@ -29,11 +30,13 @@ export interface UseWebSocketReturn {
 
 export function useWebSocket({
   sessionId,
-  serverUrl = process.env.NEXT_PUBLIC_RELAY_SERVER_URL || 'ws://localhost:8000',
+  serverUrl,
   onMessage,
   onError,
   reconnectInterval = 3000,
 }: UseWebSocketOptions): UseWebSocketReturn {
+  // Get the server URL dynamically if not explicitly provided
+  const resolvedServerUrl = serverUrl || getRelayServerUrl();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -58,7 +61,7 @@ export function useWebSocket({
     }
 
     try {
-      const wsUrl = `${serverUrl}/ws/${sessionId}`;
+      const wsUrl = `${resolvedServerUrl}/ws/${sessionId}`;
       console.log('🔌 Connecting to WebSocket:', wsUrl);
 
       const ws = new WebSocket(wsUrl);
@@ -161,7 +164,7 @@ export function useWebSocket({
       setError(error);
       onErrorRef.current?.(error);
     }
-  }, [sessionId, serverUrl, reconnectInterval]);
+  }, [sessionId, resolvedServerUrl, reconnectInterval]);
 
   const sendMessage = useCallback(async (text: string, metadata?: Record<string, any>) => {
     if (!text.trim()) {
@@ -186,7 +189,7 @@ export function useWebSocket({
 
     try {
       // Send via HTTP POST to /prompt endpoint
-      const response = await fetch(`${serverUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/prompt`, {
+      const response = await fetch(`${resolvedServerUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/prompt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -222,7 +225,7 @@ export function useWebSocket({
         return newSet;
       });
     }
-  }, [sessionId, serverUrl]);
+  }, [sessionId, resolvedServerUrl]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);

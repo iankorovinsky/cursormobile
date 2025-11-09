@@ -6,6 +6,7 @@ import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
 import StripeCheckout from './StripeCheckout';
 import UserProfileIcon from './UserProfileIcon';
+import BackendUrlConfig from './BackendUrlConfig';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useNotifications } from '@/app/notifications/hooks';
 
@@ -175,6 +176,9 @@ export default function ChatInterface() {
       {isCheckoutOpen && (
         <StripeCheckout onClose={() => setIsCheckoutOpen(false)} />
       )}
+
+      {/* Backend URL Configuration */}
+      <BackendUrlConfig />
     </div>
   );
 }
