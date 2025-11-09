@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field, FieldValidationInfo, field_validator
 
 app = FastAPI(title="Relay Server", version="0.1.0")
 
-# CORS: Allow all origins
+# Enable CORS for all origins (including vscode-file://)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -291,24 +291,37 @@ async def fetch_prompts(
 
 @app.post("/response")
 async def create_response(payload: ResponsePayload) -> Dict[str, Any]:
+    print(f"\n{'='*60}")
+    print(f"📨 RECEIVED MESSAGE")
+    print(f"{'='*60}")
+    print(f"Session ID: {payload.session_id}")
+    print(f"Client Msg ID: {payload.client_msg_id}")
+    print(f"Text: {payload.text[:200]}{'...' if len(payload.text) > 200 else ''}")
+    if payload.metadata:
+        print(f"Metadata: {payload.metadata}")
+    print(f"{'='*60}\n")
+    
     ensure_message_size(payload.text, "text")
     assistant_msg_id = normalize_optional_id(
         payload.assistant_msg_id, "assistant_msg_id"
     ) or str(uuid.uuid4())
-    session = sessions.get(payload.session_id)
-    if not session:
-        raise_http_error(status.HTTP_404_NOT_FOUND, "Session not found", payload.session_id)
+    
+    # Auto-create session if it doesn't exist (for standalone messages)
+    session = await get_session(payload.session_id, create=True)
+    
     async with session.lock:
         prompt = session.prompts.get(payload.client_msg_id)
+        # Allow messages without prompts (for monitoring/connection messages)
         if not prompt:
-            raise_http_error(
-                status.HTTP_404_NOT_FOUND,
-                "Prompt not found",
-                payload.client_msg_id,
-            )
+            print(f"⚠️  No matching prompt found for client_msg_id: {payload.client_msg_id}")
+            print(f"   Creating standalone message entry...")
+            # Store it anyway as a standalone response
+            pass
         if assistant_msg_id in session.responses_by_assistant:
             return {"ok": True, "assistant_msg_id": assistant_msg_id, "delivered": True}
-        if payload.client_msg_id in session.responses_by_client:
+        
+        # Allow duplicate client_msg_id if no prompt exists (for monitoring messages)
+        if payload.client_msg_id in session.responses_by_client and prompt:
             raise_http_error(
                 status.HTTP_409_CONFLICT,
                 "Response already exists for client_msg_id",

@@ -9,6 +9,19 @@
     // Clear console for fresh start
     console.clear();
     
+    /** Configuration */
+    const RELAY_CONFIG = {
+      serverUrl: 'http://localhost:8000',
+      sessionId: window.CURSOR_SESSION_ID || 'cursor-desktop-session',
+      enabled: true
+    };
+    
+    // Allow external config
+    window.configureCursorRelay = (config) => {
+      Object.assign(RELAY_CONFIG, config);
+      console.warn('🔧 Relay config updated:', RELAY_CONFIG);
+    };
+    
     /** Utility: decode HTML entities safely */
     function decodeHtml(html) {
       // Manual entity decoding to avoid Trusted Types issues
@@ -139,6 +152,52 @@
     window.cursorMessages = messages;
   
   
+    /** Send message to relay server */
+    async function sendToRelay(msg) {
+      if (!RELAY_CONFIG.enabled) return;
+      
+      try {
+        // Format text with code blocks included
+        let fullText = msg.text || '';
+        
+        if (msg.codeBlocks && msg.codeBlocks.length) {
+          const codeBlocksText = msg.codeBlocks
+            .map(block => `\n\n[CODE: ${block.filename}]\n${block.code}`)
+            .join('');
+          fullText += codeBlocksText;
+        }
+        
+        const payload = {
+          session_id: RELAY_CONFIG.sessionId,
+          client_msg_id: msg.index || `cursor-${msg.id}`,
+          text: fullText || '(empty)',
+          metadata: {
+            cursor_id: msg.id,
+            cursor_index: msg.index,
+            timestamp: msg.timestamp,
+            has_code_blocks: (msg.codeBlocks?.length || 0) > 0,
+            code_blocks: msg.codeBlocks || []
+          }
+        };
+        
+        const response = await fetch(`${RELAY_CONFIG.serverUrl}/response`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.warn(`✅ Sent to relay: ${msg.index}`, result);
+        } else {
+          const error = await response.text();
+          console.warn(`❌ Relay failed: ${response.status}`, error);
+        }
+      } catch (err) {
+        console.warn(`❌ Relay error:`, err.message);
+      }
+    }
+    
     /** Track message polling intervals */
     const pollingIntervals = new Map();
     const lastMessageContent = new Map();
@@ -183,6 +242,9 @@
           if (!msg.text && (!msg.codeBlocks || !msg.codeBlocks.length)) {
             console.warn('(empty)');
           }
+          
+          // Send to relay server
+          sendToRelay(msg);
         } else {
           // Content changed - keep polling
           lastMessageContent.set(index, currentContent);
@@ -231,6 +293,21 @@
     });
   
     console.warn('👁️ Watching for new messages...');
+    console.warn('🌐 Relay server:', RELAY_CONFIG.enabled ? RELAY_CONFIG.serverUrl : 'DISABLED');
+    console.warn('📝 Session ID:', RELAY_CONFIG.sessionId);
+    console.warn('⚙️  To configure: window.configureCursorRelay({ sessionId: "your-id", enabled: true })');
+    
+    // Send startup message to relay
+    if (RELAY_CONFIG.enabled) {
+      const startupMsg = {
+        id: 'startup',
+        index: 'startup',
+        text: '🚀 Cursor Mobile payload connected',
+        codeBlocks: [],
+        timestamp: Date.now()
+      };
+      sendToRelay(startupMsg);
+    }
     
     // Store observer for cleanup if needed
     window.cursorObserver = observer;
