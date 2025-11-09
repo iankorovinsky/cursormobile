@@ -1,1 +1,8 @@
 relay-server/__pycache__/server.cpython-310.pyc
+.env.local
+.env*.local
+*.pyc
+__pycache__/
+node_modules/
+.next/
+.DS_Store
