@@ -53,8 +53,8 @@ Cursor isn't designed for this kind of remote control, so we built a clever arch
 
 ```
 ┌─────────────────┐        WebSocket         ┌──────────────┐        WebSocket        ┌─────────────────┐
-│   Mobile/Web    │ ◄─────────────────────► │ Relay Server │ ◄────────────────────► │ Cursor Desktop  │
-│    Frontend     │     (HTTP + WS)          │  (FastAPI)   │     (Injected JS)      │   (Browser)     │
+│   Mobile/Web    │ ◄─────────────────────►  │ Relay Server │ ◄────────────────────►  │ Cursor Desktop  │
+│    Frontend     │     (HTTP + WS)          │  (FastAPI)   │     (Injected JS)       │   (Browser)     │
 └─────────────────┘                          └──────────────┘                         └─────────────────┘
 ```
 
