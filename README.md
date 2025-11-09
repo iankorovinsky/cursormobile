@@ -12,7 +12,13 @@ Control your Cursor IDE from your phone, tablet, or any device with a browser. S
   <em>Beautiful mobile-first chat interface</em>
 </p>
 
-<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/JSDZqCcWaCc?si=S1Dx1b0jA6VhwPqW" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<p align="center">
+  <a href="https://youtu.be/JSDZqCcWaCc">
+    <img src="https://img.youtube.com/vi/JSDZqCcWaCc/maxresdefault.jpg" alt="Cursor on the Go Demo Video" style="max-width: 700px; width: 100%;">
+  </a>
+  <br>
+  <em>🎥 Watch the demo video</em>
+</p>
 
 ---
 
