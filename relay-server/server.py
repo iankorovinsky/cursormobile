@@ -257,7 +257,33 @@ async def create_prompt(payload: PromptPayload) -> Dict[str, Any]:
         )
         session.prompts[client_msg_id] = prompt_message
         session.history.append(HistoryEntry(type="prompt", data=prompt_message))
+        
+        # Send to all WebSocket subscribers immediately
+        subscribers = list(session.subscribers)
         session.condition.notify_all()
+    
+    # Send prompt to WebSocket connections outside the lock
+    prompt_payload = {
+        "type": "prompt",
+        "session_id": session_id,
+        "client_msg_id": client_msg_id,
+        "prompt": payload.prompt,
+        "metadata": payload.metadata,
+        "ts": ts
+    }
+    stale: List[WebSocket] = []
+    for ws in subscribers:
+        try:
+            await ws.send_json(prompt_payload)
+            print(f"📤 Sent prompt to WebSocket subscriber: {client_msg_id}")
+        except (RuntimeError, WebSocketDisconnect):
+            stale.append(ws)
+    
+    if stale:
+        async with session.lock:
+            for ws in stale:
+                session.subscribers.discard(ws)
+    
     return {"stored": True, "client_msg_id": client_msg_id}
 
 
@@ -352,15 +378,39 @@ async def websocket_pinger(websocket: WebSocket) -> None:
         return
 
 
+async def send_prompts_to_websocket(session: SessionState, websocket: WebSocket) -> None:
+    """Send pending prompts to the WebSocket connection."""
+    async with session.lock:
+        pending = pending_prompts_locked(session)
+        for prompt in pending:
+            try:
+                await websocket.send_json({
+                    "type": "prompt",
+                    "session_id": prompt.session_id,
+                    "client_msg_id": prompt.client_msg_id,
+                    "prompt": prompt.prompt,
+                    "metadata": prompt.metadata,
+                    "ts": prompt.ts
+                })
+                print(f"📤 Sent prompt to WebSocket: {prompt.client_msg_id}")
+            except (RuntimeError, WebSocketDisconnect):
+                break
+
+
 @app.websocket("/ws/{session_id}")
 async def session_websocket(websocket: WebSocket, session_id: str) -> None:
-    session = sessions.get(session_id)
-    if not session:
-        await websocket.close(code=4404, reason="Session not found")
-        return
+    # Auto-create session if it doesn't exist
+    session = await get_session(session_id, create=True)
+    
     await websocket.accept()
+    print(f"\n🔌 WebSocket connected for session: {session_id}")
+    
     async with session.lock:
         session.subscribers.add(websocket)
+    
+    # Send any pending prompts immediately
+    await send_prompts_to_websocket(session, websocket)
+    
     ping_task = asyncio.create_task(websocket_pinger(websocket))
     try:
         while True:
@@ -381,13 +431,87 @@ async def session_websocket(websocket: WebSocket, session_id: str) -> None:
                     }
                 )
                 continue
-            if payload.get("type") == "pong":
+            
+            msg_type = payload.get("type")
+            
+            if msg_type == "pong":
                 continue
+            
+            if msg_type == "response":
+                # Received a response from Cursor via WebSocket
+                print(f"\n{'='*60}")
+                print(f"📨 RECEIVED RESPONSE VIA WEBSOCKET")
+                print(f"{'='*60}")
+                print(f"Session ID: {payload.get('session_id')}")
+                print(f"Client Msg ID: {payload.get('client_msg_id')}")
+                text = payload.get('text', '')
+                print(f"Text: {text[:200]}{'...' if len(text) > 200 else ''}")
+                if payload.get('metadata'):
+                    print(f"Metadata: {payload.get('metadata')}")
+                print(f"{'='*60}\n")
+                
+                # Store the response
+                try:
+                    client_msg_id = payload.get('client_msg_id')
+                    text = payload.get('text')
+                    metadata = payload.get('metadata')
+                    
+                    if not client_msg_id or not text:
+                        await websocket.send_json({
+                            "type": "error",
+                            "error": "Missing required fields",
+                            "details": "response requires client_msg_id and text"
+                        })
+                        continue
+                    
+                    assistant_msg_id = str(uuid.uuid4())
+                    
+                    async with session.lock:
+                        # Check if already exists
+                        if assistant_msg_id in session.responses_by_assistant:
+                            continue
+                        
+                        ts = current_timestamp_ms()
+                        assistant_message = AssistantMessage(
+                            session_id=session_id,
+                            assistant_msg_id=assistant_msg_id,
+                            client_msg_id=client_msg_id,
+                            text=text,
+                            metadata=metadata,
+                            ts=ts,
+                        )
+                        session.responses_by_client[client_msg_id] = assistant_message
+                        session.responses_by_assistant[assistant_msg_id] = assistant_message
+                        session.history.append(HistoryEntry(type="assistant", data=assistant_message))
+                        
+                        # Notify anyone waiting for prompts
+                        session.condition.notify_all()
+                    
+                    # Broadcast to other subscribers
+                    await broadcast_response(session, assistant_message)
+                    
+                    await websocket.send_json({
+                        "type": "ack",
+                        "client_msg_id": client_msg_id,
+                        "assistant_msg_id": assistant_msg_id
+                    })
+                    
+                except Exception as e:
+                    print(f"❌ Error storing response: {e}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "error": "Failed to store response",
+                        "details": str(e)
+                    })
+                
+                continue
+            
+            # Unknown message type
             await websocket.send_json(
                 {
                     "type": "error",
                     "error": "Unsupported message type",
-                    "details": "Only pong messages are accepted",
+                    "details": f"Unsupported type: {msg_type}",
                 }
             )
     finally:
@@ -396,6 +520,7 @@ async def session_websocket(websocket: WebSocket, session_id: str) -> None:
             await ping_task
         async with session.lock:
             session.subscribers.discard(websocket)
+        print(f"🔌 WebSocket disconnected for session: {session_id}")
 
 
 @app.get("/messages/{session_id}")
