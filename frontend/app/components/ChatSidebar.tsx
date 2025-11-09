@@ -1,5 +1,7 @@
 'use client';
 
+import AuthButton from './AuthButton';
+
 interface Chat {
   id: string;
   title: string;
@@ -132,6 +134,9 @@ export default function ChatSidebar({ isOpen, onClose, chats, currentChatId, onS
             </button>
           </div>
         </div>
+
+        {/* Auth Button at bottom */}
+        <AuthButton />
       </div>
     </>
   );
