@@ -61,6 +61,45 @@
       }
     }
   
+    /** Extract code blocks from bubble */
+    function extractCodeBlocks(bubble) {
+      const codeBlocks = [];
+      const containers = bubble.querySelectorAll('.composer-code-block-container');
+      
+      containers.forEach(container => {
+        // Get filename
+        const filenameEl = container.querySelector('.composer-code-block-filename');
+        const filename = filenameEl ? filenameEl.textContent.trim() : 'untitled';
+        
+        // Get code content from Monaco editor
+        const viewLines = container.querySelectorAll('.view-lines .view-line');
+        let code = '';
+        
+        if (viewLines && viewLines.length) {
+          // Extract from all Monaco editors (original and modified for diffs)
+          const editors = container.querySelectorAll('.monaco-editor');
+          editors.forEach(editor => {
+            const lines = editor.querySelectorAll('.view-lines .view-line');
+            if (lines.length) {
+              const editorCode = Array.from(lines)
+                .map(line => line.innerText.replace(/\u00A0/g, ' '))
+                .filter(line => line.trim())
+                .join('\n');
+              if (editorCode) {
+                code += (code ? '\n---\n' : '') + editorCode;
+              }
+            }
+          });
+        }
+        
+        if (code) {
+          codeBlocks.push({ type: 'code', filename, code });
+        }
+      });
+      
+      return codeBlocks;
+    }
+  
     /** Extract message data from a bubble element */
     function extractMessage(bubble) {
       const id = bubble.id || null;
@@ -70,14 +109,20 @@
       const container = bubble.querySelector('.anysphere-markdown-container-root') || bubble;
       const sections = Array.from(container.querySelectorAll('section.markdown-section, .markdown-section'));
   
-      // if none found, try to fallback to text nodes inside the bubble
-      const rawSections = sections.length ? sections.map(s => ({ raw: s.getAttribute('data-markdown-raw')||null })) : [{ raw: null }];
-  
       // build text by joining sectionText with double newline between logical sections
       const pieces = sections.length ? sections.map(sectionText).filter(Boolean) : [ (bubble.innerText||'').trim() ];
       const text = pieces.join('\n\n').trim();
+      
+      // Extract code blocks separately
+      const codeBlocks = extractCodeBlocks(bubble);
   
-      return { id, index, text, rawSections, timestamp: Date.now() };
+      return { 
+        id, 
+        index, 
+        text, 
+        codeBlocks,
+        timestamp: Date.now() 
+      };
     }
   
     /** Initial scan - collect all existing messages */
@@ -108,9 +153,10 @@
       
       const interval = setInterval(() => {
         const msg = extractMessage(bubble);
+        const currentContent = JSON.stringify({ text: msg.text, codeBlocks: msg.codeBlocks });
         const lastContent = lastMessageContent.get(index);
         
-        if (lastContent === msg.text) {
+        if (lastContent === currentContent) {
           // Content hasn't changed - it's done streaming
           clearInterval(interval);
           pollingIntervals.delete(index);
@@ -125,10 +171,21 @@
           }
           
           console.warn(`🔔 NEW MESSAGE [${msg.index}]:`);
-          console.warn(msg.text || '(empty)');
+          if (msg.text) {
+            console.warn(msg.text);
+          }
+          if (msg.codeBlocks && msg.codeBlocks.length) {
+            msg.codeBlocks.forEach(block => {
+              console.warn(`📄 CODE BLOCK: ${block.filename}`);
+              console.warn(block.code);
+            });
+          }
+          if (!msg.text && (!msg.codeBlocks || !msg.codeBlocks.length)) {
+            console.warn('(empty)');
+          }
         } else {
           // Content changed - keep polling
-          lastMessageContent.set(index, msg.text);
+          lastMessageContent.set(index, currentContent);
         }
       }, 2000);
       
