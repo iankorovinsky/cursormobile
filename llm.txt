@@ -7,9 +7,11 @@ cursormobile is a mobile web application that ports Cursor IDE chat functionalit
 - Access to AI coding assistance on the go
 - Synchronization with Cursor IDE chat sessions
 - Responsive design prioritizing mobile usability
+- Secure authentication via Auth0
 
 ## Tech Stack
-- Frontend: Next.js, React, Tailwind CSS
+- Frontend: Next.js 16, React 19, Tailwind CSS 4
+- Authentication: Auth0
 - Target Platform: Mobile web browsers
 - Payments: Stripe (subscription management)
 
@@ -121,3 +123,78 @@ Fancy Components aims to inject playfulness into web UI by providing copy-and-pa
 ---
 
 All components are available in both interactive format (for developers) and markdown format (for LLMs and documentation tools). Simply append `.md` to any documentation URL to access the markdown version.
+
+## Authentication (Auth0)
+
+### Overview
+cursormobile has Auth0 authentication scaffolding in place, ready for full implementation. Auth0 is a flexible, drop-in solution that provides authentication and authorization as a service.
+
+### Current Implementation Status
+
+The application includes basic Auth0 integration scaffolding:
+- **Auth Button UI** (components/AuthButton.tsx): Login/logout button in sidebar
+- **Auth API Routes** (app/api/auth/[auth0]/route.ts): Placeholder endpoints for Auth0 flow
+- **Environment Configuration**: Template for Auth0 credentials
+
+### How It Works
+
+When fully configured with Auth0 credentials, the authentication flow will work as follows:
+
+1. **Authentication Flow**
+   - User clicks "Login" button in the sidebar
+   - Redirected to Auth0's Universal Login page
+   - After authentication, Auth0 redirects back to the app via callback
+   - User session is established and user info is displayed
+
+2. **Components**
+   - **AuthButton** (components/AuthButton.tsx): Displays login/logout button, fetches user profile from `/api/auth/me`
+   - **Auth API Routes** (app/api/auth/[auth0]/route.ts): Handles Auth0 OAuth flow
+     - `/api/auth/login`: Initiates Auth0 login
+     - `/api/auth/logout`: Clears session and logs out
+     - `/api/auth/callback`: Handles OAuth callback and token exchange
+     - `/api/auth/me`: Returns current user session
+
+### Setup Instructions
+
+To enable Auth0 authentication:
+
+1. **Create Auth0 Application**
+   - Sign up at [auth0.com](https://auth0.com)
+   - Create a "Regular Web Application"
+   - Note your Domain, Client ID, and Client Secret
+
+2. **Configure Environment Variables**
+   Copy `.env.local.example` to `.env.local` and fill in:
+   ```env
+   AUTH0_ISSUER_BASE_URL=https://YOUR_DOMAIN.auth0.com
+   AUTH0_CLIENT_ID=YOUR_CLIENT_ID
+   AUTH0_CLIENT_SECRET=YOUR_CLIENT_SECRET
+   AUTH0_SECRET=<generate with: openssl rand -hex 32>
+   AUTH0_BASE_URL=http://localhost:3000
+   ```
+
+3. **Configure Auth0 Application Settings**
+   In Auth0 Dashboard, set:
+   - Allowed Callback URLs: `http://localhost:3000/api/auth/callback`
+   - Allowed Logout URLs: `http://localhost:3000`
+   - Allowed Web Origins: `http://localhost:3000`
+
+4. **Implement Session Management** (Optional Enhancement)
+   The current implementation includes basic OAuth redirects. For production:
+   - Add session storage (cookies, database, or Redis)
+   - Implement token exchange in `/api/auth/callback`
+   - Add session validation middleware
+   - Store user profile in session for `/api/auth/me` endpoint
+
+### Security Considerations
+- Environment variables should never be committed to version control
+- Use HTTPS in production
+- Implement CSRF protection for state parameters
+- Add proper session management with HTTP-only cookies
+- Consider implementing refresh token rotation
+
+### Files Reference
+- Auth API: `frontend/app/api/auth/[auth0]/route.ts`
+- Auth Button: `frontend/app/components/AuthButton.tsx`
+- Setup Guide: `frontend/AUTH0_SETUP.md`
+- Environment Template: `frontend/.env.local.example`
