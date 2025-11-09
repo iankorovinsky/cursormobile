@@ -73,7 +73,7 @@ export default function ChatInterface() {
   const currentChat = chats.find(chat => chat.id === currentChatId);
 
   return (
-    <div className="flex h-screen bg-[#1C1C1C] overflow-hidden">
+    <div className="flex h-full bg-[#1C1C1C] overflow-hidden">
       {/* Sidebar */}
       <ChatSidebar
         isOpen={isSidebarOpen}
@@ -89,11 +89,11 @@ export default function ChatInterface() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#333333] bg-[#1C1C1C]">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-2 sm:px-4 py-2 border-b border-[#333333] bg-[#1C1C1C]">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="lg:hidden p-1.5 hover:bg-[#2A2A2A] rounded transition-colors"
+              className="lg:hidden p-1.5 hover:bg-[#2A2A2A] rounded transition-colors flex-shrink-0"
               aria-label="Toggle sidebar"
             >
               <svg
@@ -115,50 +115,35 @@ export default function ChatInterface() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/* Connection Status Indicator */}
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isConnected ? 'Connected' : 'Disconnected'} />
             {error && <span className="text-xs text-red-400" title={error.message}>⚠️</span>}
-            <div className="flex items-center gap-1">
-              <button
-                className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
-                aria-label="New chat"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-              <button
-                className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
-                aria-label="History"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              <button
-                onClick={handleTestNotification}
-                className={`p-1.5 hover:bg-[#2A2A2A] rounded transition-colors ${
-                  permission === 'granted' 
-                    ? 'text-[#007ACC] hover:text-[#1A8AD9]' 
-                    : 'text-[#808080] hover:text-[#CCCCCC]'
-                }`}
-                aria-label="Test notification"
-                title={permission === 'granted' ? 'Test notification (enabled)' : 'Test notification (click to enable)'}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-              </button>
-              <button
-                className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
-                aria-label="More options"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                </svg>
-              </button>
-            </div>
+            
+            <button
+              className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
+              aria-label="New chat"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={handleTestNotification}
+              className={`p-1.5 hover:bg-[#2A2A2A] rounded transition-colors ${
+                permission === 'granted' 
+                  ? 'text-[#007ACC] hover:text-[#1A8AD9]' 
+                  : 'text-[#808080] hover:text-[#CCCCCC]'
+              }`}
+              aria-label="Test notification"
+              title={permission === 'granted' ? 'Test notification (enabled)' : 'Test notification (click to enable)'}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </button>
+            
             <div className="border-l border-[#333333] h-6 mx-1"></div>
             <UserProfileIcon />
           </div>

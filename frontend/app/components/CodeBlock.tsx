@@ -62,19 +62,19 @@ export default function CodeBlock({ title, code, language = 'text', showCancel =
   return (
     <div className="rounded-lg border border-[#333333] bg-[#242424] overflow-hidden my-2">
       {title && (
-        <div className="flex items-center justify-between px-4 py-2 bg-[#2D2D2D] border-b border-[#333333]">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[#808080] font-mono">{title}</span>
+        <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 bg-[#2D2D2D] border-b border-[#333333]">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
+            <span className="text-xs text-[#808080] font-mono truncate">{title}</span>
             {language && language !== 'text' && (
-              <span className="text-xs text-[#666666] px-2 py-0.5 rounded bg-[#1A1A1A]">
+              <span className="hidden sm:inline text-xs text-[#666666] px-2 py-0.5 rounded bg-[#1A1A1A]">
                 {language}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1 text-xs text-[#808080] hover:text-[#CCCCCC] transition-colors px-2 py-1 rounded hover:bg-[#333333]"
+              className="flex items-center gap-1 text-xs text-[#808080] hover:text-[#CCCCCC] transition-colors px-1.5 sm:px-2 py-1 rounded hover:bg-[#333333]"
               title="Copy code"
             >
               {copied ? (
@@ -82,14 +82,14 @@ export default function CodeBlock({ title, code, language = 'text', showCancel =
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span>Copied!</span>
+                  <span className="hidden sm:inline">Copied!</span>
                 </>
               ) : (
                 <>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  <span>Copy</span>
+                  <span className="hidden sm:inline">Copy</span>
                 </>
               )}
             </button>
@@ -120,8 +120,8 @@ export default function CodeBlock({ title, code, language = 'text', showCancel =
       )}
       {isExpanded && (
         <div className="relative">
-          <div className="p-4 overflow-x-auto bg-[#1A1A1A]">
-            <pre className="text-sm leading-relaxed">
+          <div className="p-2 sm:p-4 overflow-x-auto bg-[#1A1A1A]">
+            <pre className="text-xs sm:text-sm leading-relaxed">
               <code className={`language-${language} text-[#E5E5E5] font-mono whitespace-pre`}>
                 {code}
               </code>

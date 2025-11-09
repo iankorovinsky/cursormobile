@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "cursormobile - Code on the go",
   description: "Mobile chat interface for Cursor IDE - Continue your coding conversations anywhere",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: "cover", // For iOS safe area support
+  },
 };
 
 export default function RootLayout({

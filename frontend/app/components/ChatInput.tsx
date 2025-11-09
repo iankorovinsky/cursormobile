@@ -44,8 +44,8 @@ export default function ChatInput({ onSendMessage, isConnected }: ChatInputProps
   };
 
   return (
-    <div className="border-t border-[#333333] bg-[#1C1C1C]">
-      <form onSubmit={handleSubmit} className="max-w-3xl mx-auto px-4 py-3">
+    <div className="border-t border-[#333333] bg-[#1C1C1C] pb-[env(safe-area-inset-bottom)]">
+      <form onSubmit={handleSubmit} className="max-w-3xl mx-auto px-2 sm:px-4 py-2 sm:py-3">
         <div className="relative rounded-lg border border-[#333333] bg-[#242424] focus-within:border-[#007ACC] transition-colors">
           <textarea
             ref={textareaRef}
@@ -56,7 +56,7 @@ export default function ChatInput({ onSendMessage, isConnected }: ChatInputProps
             className="
               w-full px-3 py-3 pr-12 bg-transparent text-[#CCCCCC]
               placeholder-[#6B6B6B] resize-none outline-none
-              text-sm leading-6
+              text-sm sm:text-base leading-6
             "
             rows={1}
             style={{ minHeight: '42px', maxHeight: '200px' }}
@@ -91,18 +91,18 @@ export default function ChatInput({ onSendMessage, isConnected }: ChatInputProps
           </button>
         </div>
 
-        {/* Bottom toolbar */}
+        {/* Bottom toolbar - simplified for mobile */}
         <div className="flex items-center justify-between mt-2 px-1">
-          <div className="flex items-center gap-3">
-            {/* Agent selector */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Agent selector - hidden on small screens */}
             <button
               type="button"
-              className="flex items-center gap-1 text-xs text-[#808080] hover:text-[#CCCCCC] transition-colors"
+              className="hidden sm:flex items-center gap-1 text-xs text-[#808080] hover:text-[#CCCCCC] transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Agent
+              <span className="hidden md:inline">Agent</span>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
@@ -113,33 +113,16 @@ export default function ChatInput({ onSendMessage, isConnected }: ChatInputProps
               type="button"
               className="flex items-center gap-1 text-xs text-[#808080] hover:text-[#CCCCCC] transition-colors"
             >
-              {mode}
+              <span className="hidden sm:inline">{mode}</span>
+              <span className="sm:hidden">Auto</span>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Action buttons */}
-            <button
-              type="button"
-              className="p-1.5 text-[#808080] hover:text-[#CCCCCC] transition-colors"
-              aria-label="Mention"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="p-1.5 text-[#808080] hover:text-[#CCCCCC] transition-colors"
-              aria-label="Web search"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Action buttons - reduced on mobile */}
             <button
               type="button"
               className="p-1.5 text-[#808080] hover:text-[#CCCCCC] transition-colors"

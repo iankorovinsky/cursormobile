@@ -71,7 +71,7 @@ export default function ChatMessages({ chatId, messages, pendingPrompts }: ChatM
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#1C1C1C]">
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-3xl mx-auto px-2 sm:px-4 py-3 sm:py-6 space-y-4 sm:space-y-6">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full text-[#808080] text-sm">
             <div className="text-center space-y-2">
@@ -88,10 +88,10 @@ export default function ChatMessages({ chatId, messages, pendingPrompts }: ChatM
               {/* User Message */}
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
-                  <div className="text-[#CCCCCC] font-medium text-base flex-1">
+                  <div className="text-[#CCCCCC] font-medium text-sm sm:text-base flex-1 break-words">
                     {message.text}
                   </div>
-                  <span className="text-[#808080] text-xs">
+                  <span className="text-[#808080] text-xs flex-shrink-0">
                     {formatTimestamp(message.timestamp)}
                   </span>
                 </div>
@@ -127,7 +127,7 @@ export default function ChatMessages({ chatId, messages, pendingPrompts }: ChatM
                   return (
                     <>
                       {displayText && (
-                        <div className="text-[#CCCCCC] text-sm leading-relaxed whitespace-pre-wrap">
+                        <div className="text-[#CCCCCC] text-sm leading-relaxed whitespace-pre-wrap break-words">
                           {displayText}
                         </div>
                       )}
