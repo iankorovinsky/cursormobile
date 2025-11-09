@@ -19,11 +19,21 @@ from fastapi import (
     status,
 )
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, FieldValidationInfo, field_validator
 
 
 app = FastAPI(title="Relay Server", version="0.1.0")
+
+# CORS: Allow all origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 MAX_MESSAGE_BYTES = 128 * 1024
 DEFAULT_PROMPT_TIMEOUT = 30
