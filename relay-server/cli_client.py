@@ -10,6 +10,20 @@ import httpx
 import websockets
 
 
+# ANSI color codes
+class Colors:
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    MAGENTA = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+    RESET = '\033[0m'
+    BOLD = '\033[1m'
+    DIM = '\033[2m'
+
+
 class CursorClient:
     def __init__(self, server_url: str = "http://localhost:8000", session_id: str = "cursor-desktop-session"):
         self.server_url = server_url
@@ -60,9 +74,42 @@ class CursorClient:
             msg_data = data.get("data", {})
             client_msg_id = msg_data.get("client_msg_id")
             text = msg_data.get("text", "")
+            metadata = msg_data.get("metadata", {})
             
-            # Print the message
+            # Print the message text
             print(f"\n🤖 Cursor: {text}")
+            
+            # Print code blocks if present
+            code_blocks = metadata.get("code_blocks", [])
+            if code_blocks:
+                print(f"\n{Colors.YELLOW}📄 Code Changes ({len(code_blocks)} file(s)):{Colors.RESET}")
+                for block in code_blocks:
+                    filename = block.get("filename", "untitled")
+                    code = block.get("code", "")
+                    
+                    print(f"\n{Colors.CYAN}{'='*60}{Colors.RESET}")
+                    print(f"{Colors.BOLD}{Colors.MAGENTA}📝 {filename}{Colors.RESET}")
+                    print(f"{Colors.CYAN}{'='*60}{Colors.RESET}")
+                    
+                    # Print code with line numbers for readability
+                    lines = code.split('\n')
+                    for i, line in enumerate(lines, 1):
+                        line_num = f"{Colors.DIM}{i:3d}{Colors.RESET}"
+                        
+                        # Detect diff markers and colorize
+                        if line.startswith('+') and not line.startswith('+++'):
+                            print(f"  {line_num} {Colors.GREEN}+{Colors.RESET} {line[1:]}")
+                        elif line.startswith('-') and not line.startswith('---'):
+                            print(f"  {line_num} {Colors.RED}-{Colors.RESET} {line[1:]}")
+                        elif line.startswith('@@'):
+                            print(f"  {line_num} {Colors.CYAN}@{Colors.RESET} {Colors.DIM}{line}{Colors.RESET}")
+                        elif line.strip() == '---' or line.strip().startswith('---'):
+                            # Separator between old and new in diffs
+                            print(f"  {line_num} {Colors.CYAN}|{Colors.RESET} {Colors.DIM}{line}{Colors.RESET}")
+                        else:
+                            print(f"  {line_num} {Colors.DIM}|{Colors.RESET} {line}")
+                    
+                    print(f"{Colors.CYAN}{'='*60}{Colors.RESET}")
             
             # If this is a response to a pending prompt, resolve it
             if client_msg_id and client_msg_id in self.pending_responses:
@@ -116,7 +163,9 @@ class CursorClient:
     async def read_user_input(self):
         """Read user input in a non-blocking way."""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, input, "\n💬 You: ")
+        # Use sys.stdin directly to avoid duplicate prompts
+        print("\n💬 You: ", end='', flush=True)
+        return await loop.run_in_executor(None, sys.stdin.readline)
     
     async def interactive_mode(self):
         """Run interactive CLI mode with WebSocket streaming."""
@@ -141,7 +190,8 @@ class CursorClient:
             while True:
                 try:
                     prompt = await self.read_user_input()
-                    prompt = prompt.strip()
+                    if prompt:
+                        prompt = prompt.strip()
                     
                     if not prompt:
                         continue
