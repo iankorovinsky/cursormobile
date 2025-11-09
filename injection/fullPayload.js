@@ -405,7 +405,7 @@
           stableCount.set(index, 0);
           lastMessageContent.set(index, currentContent);
         }
-      }, 2000);
+      }, 1000);
       
       pollingIntervals.set(index, interval);
     }
