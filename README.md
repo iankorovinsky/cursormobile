@@ -6,6 +6,25 @@ Control your Cursor IDE from your phone, tablet, or any device with a browser. S
 
 *HackUTD 2025 Project*
 
+<p align="center">
+  <img src="image.png" alt="Cursor Mobile Interface" style="max-width: 600px; width: 100%;">
+  <br>
+  <em>Beautiful mobile-first chat interface</em>
+</p>
+
+
+---
+
+## ⚠️ SECURITY WARNING
+
+**🚨 This is a hackathon project for educational purposes only! 🚨**
+
+- This app can **execute arbitrary code** on your computer via Cursor's AI
+- **Limited authentication or security** - exposing ports publicly = remote code execution risk
+- Use only on **test machines** and **trusted networks**
+
+**📄 [READ THE FULL DISCLAIMER](DISCLAIMER.md) BEFORE USING**
+
 ---
 
 ## 🎯 Inspiration
@@ -25,12 +44,6 @@ Well worry not! Our innovative new app lets you prompt Cursor from a mobile app 
 - **💳 Stripe Payments**: Monetization ready (currently at $2 ARR, scaling to 100M! 🚀)
 - **📱 Mobile-First UI**: Responsive design optimized for phones and tablets
 - **⚡ Real-time Sync**: WebSocket-powered bidirectional communication
-
-<p align="center">
-  <img src="image.png" alt="Cursor Mobile Interface" style="max-width: 600px; width: 100%;">
-  <br>
-  <em>Beautiful mobile-first chat interface</em>
-</p>
 
 ---
 
@@ -467,6 +480,48 @@ On a serious level, we learned:
 ---
 
 **Happy vibe coding! Ship from anywhere. 🚀📱**
+
+---
+
+## ⚖️ Security & Legal
+
+**⚠️ IMPORTANT: READ BEFORE USING ⚠️**
+
+This application is **EXTREMELY RISKY** and for **educational/hackathon purposes ONLY**.
+
+### Key Risks
+
+By using this software, you understand that:
+
+- 🔓 **This app can execute arbitrary code on your computer** through Cursor's AI
+- 🌐 **Forwarding ports publicly exposes your system to the internet** - anyone with your IP/ngrok URL could potentially send commands
+- 🔒 **There is NO authentication or security by default** on the relay server
+- 💣 **This is full of potential security vulnerabilities** - it was built in a hackathon, not for production use
+- 🎯 **This gives web access to your terminal** if you forward ports - essentially opening your computer to remote code execution
+- ⚠️ **AI can and will run commands, install packages, modify files, etc.** - all on your real system
+
+### Safe Usage Guidelines
+
+**DO NOT:**
+- ❌ Run this on a production machine
+- ❌ Forward ports publicly without understanding the risks
+- ❌ Use this with sensitive data or on important systems
+- ❌ Leave this running unattended
+- ❌ Use this in any environment where security matters
+
+**ONLY USE THIS:**
+- ✅ On a throwaway/test machine or VM
+- ✅ On a trusted local network
+- ✅ For demos and experimentation
+- ✅ With full understanding of the risks
+
+### Legal Disclaimer
+
+This software is provided "AS IS" with **NO WARRANTY** and **NO LIABILITY**. You use it entirely at your own risk.
+
+**📄 [READ THE COMPLETE LEGAL DISCLAIMER](DISCLAIMER.md)**
+
+By using this software, you acknowledge that you have read, understood, and accepted all terms in the full disclaimer.
 
 ---
 
