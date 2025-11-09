@@ -11,6 +11,50 @@ cursormobile is a mobile web application that ports Cursor IDE chat functionalit
 ## Tech Stack
 - Frontend: Next.js, React, Tailwind CSS
 - Target Platform: Mobile web browsers
+- Payments: Stripe (subscription management)
+
+## Stripe Payment Integration
+
+The application includes a complete Stripe integration for subscription-based monetization. Here's how it works:
+
+### Architecture
+1. **Frontend Components**:
+   - `StripeCheckout.tsx`: Modal component displaying subscription plans (Monthly/Annual)
+   - Integrated into `ChatSidebar.tsx` with an "Upgrade to Pro" call-to-action
+   - Success/Cancel pages for post-checkout user experience
+
+2. **Backend API**:
+   - `/api/create-checkout-session`: Next.js API route that creates Stripe Checkout sessions
+   - Handles secure server-side communication with Stripe API
+   - Returns session ID for frontend redirect
+
+3. **Payment Flow**:
+   - User clicks "Upgrade Now" in sidebar → Opens checkout modal
+   - User selects plan (Monthly or Annual) → Triggers API call to create session
+   - API creates Stripe Checkout session with price ID → Returns session ID
+   - Frontend redirects user to Stripe hosted checkout page
+   - After payment: Redirect to `/success` or `/cancel` page
+
+### Setup Instructions
+1. Create a Stripe account at https://stripe.com
+2. Get API keys from https://dashboard.stripe.com/apikeys
+3. Create products and prices in Stripe Dashboard:
+   - Monthly subscription (e.g., $20/month)
+   - Annual subscription (e.g., $192/year)
+4. Copy `.env.example` to `.env.local` and add your keys:
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: Your publishable key
+   - `STRIPE_SECRET_KEY`: Your secret key
+   - Update price IDs in `StripeCheckout.tsx` to match your Stripe products
+
+### Security Features
+- Secret key stored server-side only (never exposed to client)
+- API route validates requests before creating sessions
+- Stripe handles all sensitive payment data (PCI compliant)
+- Session-based checkout prevents price manipulation
+
+### Pricing Plans
+- **Monthly Plan**: $20/month - Unlimited AI conversations, Cursor sync, priority support
+- **Annual Plan**: $192/year (20% savings) - All monthly features plus early access to new features
 
 # Fancy Components
 
