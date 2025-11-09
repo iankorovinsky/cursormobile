@@ -10,6 +10,7 @@ export async function GET(
   const requiredEnvVars = {
     AUTH0_ISSUER_BASE_URL: process.env.AUTH0_ISSUER_BASE_URL,
     AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
+    AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET,
     AUTH0_BASE_URL: process.env.AUTH0_BASE_URL,
   };
 
@@ -28,8 +29,7 @@ export async function GET(
     );
   }
 
-  // Simple placeholder implementation
-  // In production, this would handle Auth0 authentication
+  // Handle Auth0 authentication flow
   switch (action) {
     case 'login':
       // Redirect to Auth0 login
@@ -41,21 +41,110 @@ export async function GET(
       return NextResponse.redirect(loginUrl.toString());
 
     case 'logout':
-      // Clear session and redirect
+      // Clear session cookie and redirect
       const logoutUrl = new URL(`${process.env.AUTH0_ISSUER_BASE_URL}/v2/logout`);
       logoutUrl.searchParams.set('client_id', process.env.AUTH0_CLIENT_ID!);
       logoutUrl.searchParams.set('returnTo', process.env.AUTH0_BASE_URL!);
-      return NextResponse.redirect(logoutUrl.toString());
+      
+      const logoutResponse = NextResponse.redirect(logoutUrl.toString());
+      logoutResponse.cookies.delete('auth0_session');
+      return logoutResponse;
 
     case 'callback':
-      // Handle Auth0 callback
-      // This is where you'd exchange the code for tokens
-      return NextResponse.redirect(process.env.AUTH0_BASE_URL!);
+      // Handle Auth0 callback - exchange code for tokens
+      const url = new URL(request.url);
+      const code = url.searchParams.get('code');
+      const error = url.searchParams.get('error');
+
+      if (error) {
+        return NextResponse.redirect(`${process.env.AUTH0_BASE_URL}?error=${error}`);
+      }
+
+      if (!code) {
+        return NextResponse.redirect(`${process.env.AUTH0_BASE_URL}?error=no_code`);
+      }
+
+      try {
+        // Exchange authorization code for tokens
+        const tokenResponse = await fetch(`${process.env.AUTH0_ISSUER_BASE_URL}/oauth/token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            client_id: process.env.AUTH0_CLIENT_ID!,
+            client_secret: process.env.AUTH0_CLIENT_SECRET!,
+            code: code,
+            redirect_uri: `${process.env.AUTH0_BASE_URL}/api/auth/callback`,
+          }).toString(),
+        });
+
+        if (!tokenResponse.ok) {
+          throw new Error('Token exchange failed');
+        }
+
+        const tokens = await tokenResponse.json();
+
+        // Get user info from Auth0
+        const userResponse = await fetch(`${process.env.AUTH0_ISSUER_BASE_URL}/userinfo`, {
+          headers: {
+            Authorization: `Bearer ${tokens.access_token}`,
+          },
+        });
+
+        if (!userResponse.ok) {
+          throw new Error('Failed to fetch user info');
+        }
+
+        const user = await userResponse.json();
+
+        // Create response and set session cookie
+        const response = NextResponse.redirect(process.env.AUTH0_BASE_URL!);
+        
+        // Store user session in a cookie (in production, use httpOnly, secure, sameSite)
+        const sessionData = JSON.stringify({
+          user,
+          accessToken: tokens.access_token,
+          expiresAt: Date.now() + (tokens.expires_in * 1000),
+        });
+
+        // Use a simple cookie for now (in production, encrypt this)
+        response.cookies.set('auth0_session', sessionData, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: tokens.expires_in || 86400, // Default to 24 hours
+          path: '/',
+        });
+
+        return response;
+      } catch (err) {
+        console.error('Auth0 callback error:', err);
+        return NextResponse.redirect(`${process.env.AUTH0_BASE_URL}?error=callback_failed`);
+      }
 
     case 'me':
-      // Return user session
-      // In production, this would return the actual user from session
-      return NextResponse.json(null);
+      // Return user session from cookie
+      const sessionCookie = request.cookies.get('auth0_session');
+      
+      if (!sessionCookie) {
+        return NextResponse.json(null);
+      }
+
+      try {
+        const sessionData = JSON.parse(sessionCookie.value);
+        
+        // Check if session is expired
+        if (sessionData.expiresAt && Date.now() > sessionData.expiresAt) {
+          return NextResponse.json(null);
+        }
+
+        // Return user info
+        return NextResponse.json(sessionData.user);
+      } catch {
+        return NextResponse.json(null);
+      }
 
     default:
       return new NextResponse('Not Found', { status: 404 });
