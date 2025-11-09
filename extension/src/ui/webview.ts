@@ -1,5 +1,59 @@
 import * as vscode from 'vscode';
 import { DevToolsOpener } from '../devtools-opener';
+import { Auth0Client } from '../auth0-client';
+
+const AUTH_STORAGE_KEY = 'cursorConsoleSnippets.userEmail';
+const TOKEN_STORAGE_KEY = 'cursorConsoleSnippets.accessToken';
+const USER_STORAGE_KEY = 'cursorConsoleSnippets.userInfo';
+
+interface StoredUserInfo {
+  email?: string;
+  name?: string;
+  picture?: string;
+  sub: string;
+}
+
+function getAuth0Config(): { domain: string; clientId: string; audience?: string } | null {
+  // Try to get from environment variables
+  // Support both AUTH0_DOMAIN and AUTH0_ISSUER_BASE_URL
+  let domain = process.env.AUTH0_DOMAIN;
+  if (!domain && process.env.AUTH0_ISSUER_BASE_URL) {
+    // Extract domain from AUTH0_ISSUER_BASE_URL (e.g., https://dev-xxx.us.auth0.com -> dev-xxx.us.auth0.com)
+    domain = process.env.AUTH0_ISSUER_BASE_URL.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  }
+  
+  const clientId = process.env.AUTH0_CLIENT_ID;
+  
+  if (!domain || !clientId) {
+    return null;
+  }
+
+  // Ensure domain doesn't have protocol or trailing slash
+  domain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+  return {
+    domain,
+    clientId,
+    audience: process.env.AUTH0_AUDIENCE,
+  };
+}
+
+async function getStoredUser(context: vscode.ExtensionContext): Promise<StoredUserInfo | null> {
+  const userInfo = context.globalState.get<StoredUserInfo>(USER_STORAGE_KEY);
+  return userInfo || null;
+}
+
+async function storeUser(context: vscode.ExtensionContext, user: StoredUserInfo, accessToken: string): Promise<void> {
+  await context.globalState.update(USER_STORAGE_KEY, user);
+  await context.secrets.store(TOKEN_STORAGE_KEY, accessToken);
+  await context.globalState.update(AUTH_STORAGE_KEY, user.email || null);
+}
+
+async function clearStoredUser(context: vscode.ExtensionContext): Promise<void> {
+  await context.globalState.update(USER_STORAGE_KEY, undefined);
+  await context.secrets.delete(TOKEN_STORAGE_KEY);
+  await context.globalState.update(AUTH_STORAGE_KEY, undefined);
+}
 
 export function openSnippetsPanel(context: vscode.ExtensionContext): void {
   const panel = vscode.window.createWebviewPanel(
@@ -12,30 +66,127 @@ export function openSnippetsPanel(context: vscode.ExtensionContext): void {
     }
   );
 
-  panel.webview.html = getWebviewHtml();
+  let currentUser: StoredUserInfo | null = null;
+  
+  // Load stored user info
+  getStoredUser(context).then(user => {
+    currentUser = user;
+    panel.webview.html = getWebviewHtml(currentUser);
+  });
+
+  panel.webview.html = getWebviewHtml(null);
   panel.reveal(vscode.ViewColumn.One);
 
   const devToolsOpener = new DevToolsOpener();
+  const auth0Config = getAuth0Config();
 
   panel.webview.onDidReceiveMessage(async (message) => {
-    if (message?.type === 'copy') {
-      await vscode.env.clipboard.writeText(message.code || '');
-      vscode.window.showInformationMessage(`Code ${message.codeIndex + 1} copied to clipboard!`);
-    } else if (message?.type === 'openDevTools') {
-      await devToolsOpener.openDevTools();
+    switch (message?.type) {
+      case 'copy':
+        await vscode.env.clipboard.writeText(message.code || '');
+        vscode.window.showInformationMessage(`Code ${message.codeIndex + 1} copied to clipboard!`);
+        break;
+      case 'openDevTools':
+        await devToolsOpener.openDevTools();
+        break;
+      case 'login': {
+        if (!auth0Config) {
+          panel.webview.postMessage({
+            type: 'authError',
+            error: 'Auth0 is not configured. Please set AUTH0_DOMAIN and AUTH0_CLIENT_ID environment variables.',
+          });
+          return;
+        }
+
+        try {
+          panel.webview.postMessage({
+            type: 'authLoading',
+            message: 'Opening browser for authentication...',
+          });
+
+          const auth0Client = new Auth0Client(auth0Config);
+          const { tokens, user } = await auth0Client.authenticate();
+
+          await storeUser(context, user, tokens.access_token);
+          currentUser = user;
+
+          panel.webview.postMessage({
+            type: 'authState',
+            email: user.email || null,
+            name: user.name || null,
+            picture: user.picture || null,
+          });
+
+          vscode.window.showInformationMessage(`Signed in as ${user.email || user.name || 'User'}`);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+          panel.webview.postMessage({
+            type: 'authError',
+            error: errorMessage,
+          });
+          vscode.window.showErrorMessage(`Authentication failed: ${errorMessage}`);
+        }
+        break;
+      }
+      case 'logout': {
+        try {
+          if (auth0Config) {
+            const auth0Client = new Auth0Client(auth0Config);
+            await auth0Client.logout();
+          }
+        } catch {
+          // Ignore logout errors
+        }
+
+        await clearStoredUser(context);
+        currentUser = null;
+
+        panel.webview.postMessage({
+          type: 'authState',
+          email: null,
+          name: null,
+          picture: null,
+        });
+        vscode.window.showInformationMessage('Signed out');
+        break;
+      }
+      default:
+        break;
     }
   });
 }
 
-function getWebviewHtml(): string {
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function getWebviewHtml(user: StoredUserInfo | null): string {
   const nonce = Date.now().toString();
-  
-  // Three example console.log statements
   const examples = [
     'console.log("Hello World from Cursor Console Injector!")',
     'console.log("Current URL:", window.location.href)',
     'console.log("User Agent:", navigator.userAgent)'
   ];
+
+  const userEmail = user?.email || null;
+  const userName = user?.name || null;
+  const userPicture = user?.picture || null;
+  const escapedEmail = escapeHtml(userEmail ?? '');
+  const escapedName = escapeHtml(userName ?? '');
+
+  const snippetHtml = examples
+    .map((code, index) => `
+      <div class="code-container">
+        <div class="code-box" id="code-box-${index}">${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+        <button class="copy-btn" data-index="${index}" id="copy-btn-${index}">Copy</button>
+      </div>
+    `)
+    .join('');
 
   return /* html */ `
     <!DOCTYPE html>
@@ -47,27 +198,123 @@ function getWebviewHtml(): string {
         <title>Cursor Console Snippets</title>
         <style>
           :root {
-            color-scheme: light dark;
+            color-scheme: dark;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: #0e0e0e;
           }
           body {
             margin: 0;
-            padding: 20px;
+            padding: 24px;
+            min-height: 100vh;
+            background: #0e0e0e;
+            color: #f4f4f5;
             display: flex;
             flex-direction: column;
             gap: 16px;
           }
+          body[data-authenticated="false"] .auth-view {
+            display: flex;
+          }
+          body[data-authenticated="false"] .app-view {
+            display: none;
+          }
+          body[data-authenticated="true"] .auth-view {
+            display: none;
+          }
+          body[data-authenticated="true"] .app-view {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          .auth-view {
+            flex: 1;
+            align-items: center;
+            justify-content: center;
+          }
+          .auth-card {
+            width: min(420px, 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 32px;
+            background: radial-gradient(circle at top, rgba(0, 122, 204, 0.2), rgba(10, 10, 10, 0.95));
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          .auth-card h2 {
+            margin: 0;
+            font-size: 1.4rem;
+          }
+          .auth-card p {
+            margin: 0;
+            color: #9ca3af;
+          }
+          .auth-card label {
+            font-size: 0.85rem;
+            color: #a1a1aa;
+            margin-bottom: 4px;
+          }
+          .auth-card input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(15, 15, 15, 0.85);
+            color: #f4f4f5;
+            font-size: 0.95rem;
+          }
+          .auth-card button {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #2563eb, #38bdf8);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+          }
+          .auth-card button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+          .auth-card .error {
+            color: #f87171;
+            font-size: 0.85rem;
+            min-height: 1.2rem;
+          }
+          .user-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+          }
+          .user-banner .email {
+            font-weight: 600;
+            color: #e0f2fe;
+          }
+          .user-banner button {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: transparent;
+            color: #f4f4f5;
+            cursor: pointer;
+          }
           h2 {
-            margin: 0 0 8px 0;
+            margin: 0;
           }
           .description {
-            color: rgba(125, 125, 125, 0.9);
-            font-size: 0.9em;
+            color: rgba(199, 199, 199, 0.9);
+            font-size: 0.95em;
             margin-bottom: 8px;
           }
           .code-box {
             border: 1px solid rgba(125, 125, 125, 0.3);
-            border-radius: 6px;
+            border-radius: 12px;
             padding: 12px;
             background: rgba(125, 125, 125, 0.05);
             font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
@@ -88,13 +335,13 @@ function getWebviewHtml(): string {
             padding: 4px 12px;
             font-size: 0.85em;
             border: 1px solid rgba(125, 125, 125, 0.3);
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08);
             cursor: pointer;
             transition: all 0.2s;
           }
           .copy-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.15);
             border-color: rgba(125, 125, 125, 0.5);
           }
           .copy-btn.copied {
@@ -106,15 +353,15 @@ function getWebviewHtml(): string {
             padding: 10px 20px;
             font-size: 1em;
             border: 1px solid rgba(125, 125, 125, 0.3);
-            border-radius: 6px;
-            background: rgba(33, 150, 243, 0.1);
+            border-radius: 10px;
+            background: rgba(33, 150, 243, 0.15);
             cursor: pointer;
             font-weight: 500;
             transition: all 0.2s;
             margin-top: 8px;
           }
           .devtools-btn:hover {
-            background: rgba(33, 150, 243, 0.2);
+            background: rgba(33, 150, 243, 0.25);
             border-color: rgba(33, 150, 243, 0.5);
           }
           .code-container {
@@ -122,55 +369,151 @@ function getWebviewHtml(): string {
           }
         </style>
       </head>
-      <body>
-        <h2>Cursor Console Snippets</h2>
-        <p class="description">Click "Copy" to copy code to clipboard, then paste into Cursor's DevTools console.</p>
-        
-        ${examples.map((code, index) => `
-          <div class="code-container">
-            <div class="code-box" id="code-box-${index}">${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-            <button class="copy-btn" data-index="${index}" id="copy-btn-${index}">Copy</button>
+      <body data-authenticated="${user ? 'true' : 'false'}">
+        <div class="auth-view">
+          <div class="auth-card">
+             <div>
+               <h2>Sign in to Cursor Mobile</h2>
+               <p>Click the button below to sign in with Auth0.</p>
+             </div>
+             <button type="button" id="login-button">Sign in with Auth0</button>
+             <p class="error" id="login-error"></p>
           </div>
-        `).join('')}
-        
-        <button class="devtools-btn" id="devtools-btn">Open Cursor DevTools</button>
+        </div>
+
+        <div class="app-view">
+           <div class="user-banner">
+             <div style="display: flex; align-items: center; gap: 12px;">
+               ${userPicture ? `<img src="${escapeHtml(userPicture)}" alt="${escapedName}" style="width: 32px; height: 32px; border-radius: 50%;" />` : ''}
+               <div>
+                 ${userName ? `<div style="font-weight: 600; color: #e0f2fe;">${escapedName}</div>` : ''}
+                 <div class="email" id="user-email">${escapedEmail}</div>
+               </div>
+             </div>
+             <button id="logout-button">Log out</button>
+           </div>
+          <h2>Cursor Console Snippets</h2>
+          <p class="description">Copy a snippet to inject straight into Cursor's DevTools console.</p>
+          ${snippetHtml}
+          <button class="devtools-btn" id="devtools-btn">Open Cursor DevTools</button>
+        </div>
         
         <script nonce="${nonce}">
-          const vscode = acquireVsCodeApi();
-          const examples = ${JSON.stringify(examples)};
+          (function() {
+            const vscode = acquireVsCodeApi();
+             const state = {
+               userEmail: ${JSON.stringify(userEmail ?? '')} || null,
+               userName: ${JSON.stringify(userName ?? '')} || null,
+               userPicture: ${JSON.stringify(userPicture ?? '')} || null,
+               examples: ${JSON.stringify(examples)}
+             };
 
-          // Copy button handlers
-          examples.forEach((code, index) => {
-            const copyBtn = document.getElementById('copy-btn-' + index);
-            const codeBox = document.getElementById('code-box-' + index);
-            
-            copyBtn.addEventListener('click', () => {
-              vscode.postMessage({
-                type: 'copy',
-                code: code,
-                codeIndex: index
+            const body = document.body;
+            const loginButton = document.getElementById('login-button');
+            const loginError = document.getElementById('login-error');
+            const logoutButton = document.getElementById('logout-button');
+            const userEmailEl = document.getElementById('user-email');
+
+            function setAuthenticated(user) {
+              state.userEmail = user?.email || null;
+              state.userName = user?.name || null;
+              state.userPicture = user?.picture || null;
+              body.dataset.authenticated = user ? 'true' : 'false';
+              if (userEmailEl) {
+                userEmailEl.textContent = user?.email || '';
+              }
+              // Update UI with user info
+              const userBanner = document.querySelector('.user-banner');
+              if (userBanner && user) {
+                const nameEl = userBanner.querySelector('.email')?.previousElementSibling;
+                if (nameEl && user.name) {
+                  nameEl.textContent = user.name;
+                }
+              }
+            }
+
+            function setLoginError(message) {
+              if (!loginError) {
+                return;
+              }
+              loginError.textContent = message || '';
+            }
+
+            function toggleLoginLoading(isLoading) {
+              if (loginButton) {
+                loginButton.disabled = isLoading;
+                loginButton.textContent = isLoading ? 'Opening browser...' : 'Sign in with Auth0';
+              }
+            }
+
+             document.getElementById('login-button')?.addEventListener('click', () => {
+               setLoginError('');
+               toggleLoginLoading(true);
+               vscode.postMessage({ type: 'login' });
+             });
+
+            logoutButton?.addEventListener('click', () => {
+              vscode.postMessage({ type: 'logout' });
+            });
+
+            window.addEventListener('message', (event) => {
+              const message = event.data;
+              if (!message) {
+                return;
+              }
+
+               if (message.type === 'authState') {
+                 toggleLoginLoading(false);
+                 setLoginError('');
+                 setAuthenticated(message.email ? {
+                   email: message.email,
+                   name: message.name || null,
+                   picture: message.picture || null,
+                   sub: ''
+                 } : null);
+               } else if (message.type === 'authError') {
+                 toggleLoginLoading(false);
+                 setLoginError(message.error || 'Unable to login.');
+               } else if (message.type === 'authLoading') {
+                 setLoginError('');
+                 // Keep loading state
+               }
+            });
+
+            state.examples.forEach((code, index) => {
+              const copyBtn = document.getElementById('copy-btn-' + index);
+              const codeBox = document.getElementById('code-box-' + index);
+
+              copyBtn?.addEventListener('click', () => {
+                vscode.postMessage({
+                  type: 'copy',
+                  code,
+                  codeIndex: index,
+                });
+
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                codeBox?.classList.add('copied');
+
+                setTimeout(() => {
+                  copyBtn.textContent = 'Copy';
+                  copyBtn.classList.remove('copied');
+                  codeBox?.classList.remove('copied');
+                }, 2000);
               });
-              
-              // Visual feedback
-              copyBtn.textContent = 'Copied!';
-              copyBtn.classList.add('copied');
-              codeBox.classList.add('copied');
-              
-              setTimeout(() => {
-                copyBtn.textContent = 'Copy';
-                copyBtn.classList.remove('copied');
-                codeBox.classList.remove('copied');
-              }, 2000);
             });
-          });
 
-          // DevTools button handler
-          document.getElementById('devtools-btn').addEventListener('click', () => {
-            vscode.postMessage({
-              type: 'openDevTools'
+            document.getElementById('devtools-btn')?.addEventListener('click', () => {
+              vscode.postMessage({ type: 'openDevTools' });
             });
-          });
 
+             setAuthenticated(state.userEmail ? {
+               email: state.userEmail,
+               name: state.userName,
+               picture: state.userPicture,
+               sub: ''
+             } : null);
+          })();
         </script>
       </body>
     </html>

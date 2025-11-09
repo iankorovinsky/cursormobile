@@ -36,7 +36,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const path = __importStar(require("path"));
+const fs = __importStar(require("fs"));
+const dotenv_1 = require("dotenv");
 const webview_1 = require("./ui/webview");
+// Load .env file from extension root directory
+// __dirname points to out/ directory in compiled code, so go up one level
+const extensionRoot = path.resolve(__dirname, '..');
+const envPath = path.join(extensionRoot, '.env');
+if (fs.existsSync(envPath)) {
+    (0, dotenv_1.config)({ path: envPath });
+    console.log(`Loaded .env file from: ${envPath}`);
+}
+else {
+    console.log(`No .env file found at: ${envPath}`);
+}
 function activate(context) {
     const disposable = vscode.commands.registerCommand('cursor-console-injector.helloWorld', () => {
         (0, webview_1.openSnippetsPanel)(context);
