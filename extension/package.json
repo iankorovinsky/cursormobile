@@ -18,7 +18,7 @@
     "commands": [
       {
         "command": "cursor-console-injector.helloWorld",
-        "title": "Open Console Snippets: Show copyable console.log snippets"
+        "title": "Cursor Mobile Extension"
       }
     ]
   },

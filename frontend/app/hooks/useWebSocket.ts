@@ -24,6 +24,7 @@ export interface UseWebSocketReturn {
   isConnected: boolean;
   error: Error | null;
   clearMessages: () => void;
+  pendingPrompts: Set<string>; // Track prompts waiting for responses
 }
 
 export function useWebSocket({
@@ -36,10 +37,20 @@ export function useWebSocket({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [pendingPrompts, setPendingPrompts] = useState<Set<string>>(new Set());
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const shouldReconnectRef = useRef(true);
+  // Use refs to avoid recreating WebSocket connection when callbacks change
+  const onMessageRef = useRef(onMessage);
+  const onErrorRef = useRef(onError);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+    onErrorRef.current = onError;
+  }, [onMessage, onError]);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -74,10 +85,26 @@ export function useWebSocket({
               metadata: data.data.metadata,
             };
 
-            setMessages((prev) => [...prev, assistantMsg]);
-            onMessage?.(assistantMsg);
+            setMessages((prev) => {
+              // Avoid duplicates by checking if message with same ID already exists
+              if (prev.some(m => m.id === assistantMsg.id)) {
+                console.log('⚠️ Duplicate assistant message ignored:', assistantMsg.id);
+                return prev;
+              }
+              return [...prev, assistantMsg];
+            });
+            
+            // Remove from pending prompts when we receive a response
+            setPendingPrompts((prev) => {
+              const newSet = new Set(prev);
+              newSet.delete(data.data.client_msg_id);
+              return newSet;
+            });
+            
+            onMessageRef.current?.(assistantMsg);
           } else if (data.type === 'prompt') {
             // Prompt from server (for sync)
+            // Note: We ignore prompts we sent ourselves (they're already optimistically added)
             const promptMsg: Message = {
               id: data.client_msg_id,
               type: 'prompt',
@@ -87,8 +114,9 @@ export function useWebSocket({
             };
 
             setMessages((prev) => {
-              // Avoid duplicates
+              // Avoid duplicates - check by ID
               if (prev.some(m => m.id === promptMsg.id)) {
+                console.log('⚠️ Duplicate prompt ignored:', promptMsg.id);
                 return prev;
               }
               return [...prev, promptMsg];
@@ -100,7 +128,7 @@ export function useWebSocket({
             console.error('❌ WebSocket error:', data.error, data.details);
             const err = new Error(data.error);
             setError(err);
-            onError?.(err);
+            onErrorRef.current?.(err);
           }
         } catch (err) {
           console.error('❌ Error parsing WebSocket message:', err);
@@ -111,7 +139,7 @@ export function useWebSocket({
         console.error('❌ WebSocket error:', event);
         const err = new Error('WebSocket connection error');
         setError(err);
-        onError?.(err);
+        onErrorRef.current?.(err);
       };
 
       ws.onclose = (event) => {
@@ -131,9 +159,9 @@ export function useWebSocket({
       console.error('❌ Error creating WebSocket:', err);
       const error = err instanceof Error ? err : new Error('Failed to create WebSocket');
       setError(error);
-      onError?.(error);
+      onErrorRef.current?.(error);
     }
-  }, [sessionId, serverUrl, onMessage, onError, reconnectInterval]);
+  }, [sessionId, serverUrl, reconnectInterval]);
 
   const sendMessage = useCallback(async (text: string, metadata?: Record<string, any>) => {
     if (!text.trim()) {
@@ -152,6 +180,9 @@ export function useWebSocket({
     };
 
     setMessages((prev) => [...prev, promptMsg]);
+    
+    // Add to pending prompts
+    setPendingPrompts((prev) => new Set(prev).add(clientMsgId));
 
     try {
       // Send via HTTP POST to /prompt endpoint
@@ -179,12 +210,19 @@ export function useWebSocket({
       console.error('❌ Error sending message:', err);
       const error = err instanceof Error ? err : new Error('Failed to send message');
       setError(error);
-      onError?.(error);
+      onErrorRef.current?.(error);
 
       // Remove the optimistic message on error
       setMessages((prev) => prev.filter(m => m.id !== clientMsgId));
+      
+      // Remove from pending prompts on error
+      setPendingPrompts((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(clientMsgId);
+        return newSet;
+      });
     }
-  }, [sessionId, serverUrl, onError]);
+  }, [sessionId, serverUrl]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -212,5 +250,6 @@ export function useWebSocket({
     isConnected,
     error,
     clearMessages,
+    pendingPrompts,
   };
 }

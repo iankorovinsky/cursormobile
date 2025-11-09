@@ -14,8 +14,8 @@ export default function ChatInterface() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   // WebSocket connection for real-time chat
-  const sessionId = 'cursor-mobile-session'; // You can make this dynamic per chat
-  const { messages, sendMessage, isConnected, error } = useWebSocket({
+  const sessionId = 'cursor-desktop-session'; // Must match the session ID used by Cursor injection script
+  const { messages, sendMessage, isConnected, error, pendingPrompts } = useWebSocket({
     sessionId,
     onMessage: (message) => {
       console.log('New message received:', message);
@@ -124,7 +124,7 @@ export default function ChatInterface() {
         </div>
 
         {/* Messages Area */}
-        <ChatMessages chatId={currentChatId} messages={messages} />
+        <ChatMessages chatId={currentChatId} messages={messages} pendingPrompts={pendingPrompts} />
 
         {/* Input Area */}
         <ChatInput onSendMessage={handleSendMessage} isConnected={isConnected} />
