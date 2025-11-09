@@ -6,6 +6,9 @@ import { useState } from 'react';
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
+// Price ID from environment variable
+const PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || '';
+
 interface StripeCheckoutProps {
   onClose?: () => void;
 }
@@ -15,6 +18,11 @@ export default function StripeCheckout({ onClose }: StripeCheckoutProps) {
   const [error, setError] = useState<string | null>(null);
 
   const handleCheckout = async (priceId: string) => {
+    if (!priceId) {
+      setError('Price ID is not configured. Please set NEXT_PUBLIC_STRIPE_PRICE_ID in your environment variables.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -29,7 +37,8 @@ export default function StripeCheckout({ onClose }: StripeCheckoutProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create checkout session');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
       const { url } = await response.json();
@@ -70,16 +79,16 @@ export default function StripeCheckout({ onClose }: StripeCheckoutProps) {
         )}
 
         <div className="space-y-4">
-          {/* Monthly Plan */}
-          <div className="border border-gray-700 rounded-lg p-4 hover:border-blue-500 transition-colors">
+          {/* One-time Payment Plan */}
+          <div className="border border-blue-500 rounded-lg p-4 hover:border-blue-500 transition-colors">
             <div className="flex justify-between items-start mb-3">
               <div>
-                <h3 className="text-lg font-semibold text-white">Monthly Plan</h3>
-                <p className="text-gray-400 text-sm">Perfect for getting started</p>
+                <h3 className="text-lg font-semibold text-white">Pro Access</h3>
+                <p className="text-gray-400 text-sm">One-time payment for lifetime access</p>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-white">$2</div>
-                <div className="text-gray-400 text-sm">/month</div>
+                <div className="text-gray-400 text-sm">one-time</div>
               </div>
             </div>
             <ul className="space-y-2 mb-4">
@@ -102,62 +111,23 @@ export default function StripeCheckout({ onClose }: StripeCheckoutProps) {
                 Priority support
               </li>
             </ul>
+            {!PRICE_ID && (
+              <div className="mb-2 text-xs text-yellow-400 bg-yellow-400 bg-opacity-10 border border-yellow-400 rounded p-2">
+                ⚠️ Price ID not configured. Add NEXT_PUBLIC_STRIPE_PRICE_ID to your .env.local file.
+              </div>
+            )}
             <button
-              onClick={() => handleCheckout('price_monthly')}
-              disabled={loading}
+              onClick={() => handleCheckout(PRICE_ID)}
+              disabled={loading || !PRICE_ID}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Loading...' : 'Subscribe Monthly'}
-            </button>
-          </div>
-
-          {/* Annual Plan */}
-          <div className="border border-blue-500 rounded-lg p-4 relative">
-            <div className="absolute -top-3 right-4 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">
-              SAVE 58%
-            </div>
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Annual Plan</h3>
-                <p className="text-gray-400 text-sm">Best value for committed users</p>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-white">$10</div>
-                <div className="text-gray-400 text-sm">/year</div>
-              </div>
-            </div>
-            <ul className="space-y-2 mb-4">
-              <li className="flex items-center text-sm text-gray-300">
-                <svg className="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Everything in Monthly
-              </li>
-              <li className="flex items-center text-sm text-gray-300">
-                <svg className="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Save $14/year
-              </li>
-              <li className="flex items-center text-sm text-gray-300">
-                <svg className="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Early access to new features
-              </li>
-            </ul>
-            <button
-              onClick={() => handleCheckout('price_annual')}
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Loading...' : 'Subscribe Annually'}
+              {loading ? 'Loading...' : 'Purchase Now'}
             </button>
           </div>
         </div>
 
         <p className="text-gray-500 text-xs text-center mt-6">
-          Secure payment powered by Stripe. Cancel anytime.
+          Secure payment powered by Stripe.
         </p>
       </div>
     </div>

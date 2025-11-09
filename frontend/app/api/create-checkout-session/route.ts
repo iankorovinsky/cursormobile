@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create Checkout Session
+    // Create Checkout Session for one-time payment
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      mode: 'subscription',
+      mode: 'payment',
       success_url: `${req.headers.get('origin')}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get('origin')}/cancel`,
       metadata: {
@@ -37,6 +37,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
+    
+    // Provide more detailed error messages
+    if (error instanceof Error) {
+      // Check if it's a Stripe error
+      if ('type' in error && error.type === 'StripeInvalidRequestError') {
+        return NextResponse.json(
+          { error: `Stripe error: ${error.message}. Please check that the price ID exists in your Stripe account.` },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { error: error.message || 'Error creating checkout session' },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Error creating checkout session' },
       { status: 500 }

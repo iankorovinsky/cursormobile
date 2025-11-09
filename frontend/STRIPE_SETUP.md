@@ -18,14 +18,17 @@ This guide will help you set up Stripe payments for the cursormobile application
 ## Step 2: Configure Environment Variables
 
 1. In the `frontend` directory, copy `.env.example` to `.env.local`:
+
    ```bash
    cp .env.example .env.local
    ```
 
-2. Edit `.env.local` and add your Stripe keys:
+2. Edit `.env.local` and add your Stripe keys and price IDs:
    ```
    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_actual_key_here
    STRIPE_SECRET_KEY=sk_test_your_actual_key_here
+   NEXT_PUBLIC_STRIPE_PRICE_MONTHLY=price_your_monthly_price_id_here
+   NEXT_PUBLIC_STRIPE_PRICE_ANNUAL=price_your_annual_price_id_here
    ```
 
 ## Step 3: Create Products and Prices in Stripe
@@ -34,6 +37,7 @@ This guide will help you set up Stripe payments for the cursormobile application
 2. Click **Add product**
 
 ### Create Monthly Subscription:
+
 - **Name**: cursormobile Pro - Monthly
 - **Description**: Unlimited AI conversations and premium features
 - **Pricing**: Recurring
@@ -43,6 +47,7 @@ This guide will help you set up Stripe payments for the cursormobile application
 - Copy the **Price ID** (starts with `price_`)
 
 ### Create Annual Subscription:
+
 - **Name**: cursormobile Pro - Annual
 - **Description**: Unlimited AI conversations and premium features (Save 20%)
 - **Pricing**: Recurring
@@ -51,20 +56,21 @@ This guide will help you set up Stripe payments for the cursormobile application
 - Click **Save product**
 - Copy the **Price ID** (starts with `price_`)
 
-## Step 4: Update Price IDs in Code
+## Step 4: Add Price IDs to Environment Variables
 
-Edit `frontend/app/components/StripeCheckout.tsx` and replace the placeholder price IDs:
+After creating your products in Stripe, copy the Price IDs and add them to your `.env.local` file:
 
-```typescript
-// Find these lines around line 73 and 104:
-onClick={() => handleCheckout('price_monthly')}  // Replace 'price_monthly' with your actual monthly price ID
-
-onClick={() => handleCheckout('price_annual')}   // Replace 'price_annual' with your actual annual price ID
 ```
+NEXT_PUBLIC_STRIPE_PRICE_MONTHLY=price_1234567890abcdef  # Replace with your actual monthly price ID
+NEXT_PUBLIC_STRIPE_PRICE_ANNUAL=price_abcdef1234567890   # Replace with your actual annual price ID
+```
+
+**Important:** Make sure to restart your Next.js development server after updating environment variables for the changes to take effect.
 
 ## Step 5: Test the Integration
 
 1. Start your development server:
+
    ```bash
    cd frontend
    npm run dev
@@ -77,6 +83,7 @@ onClick={() => handleCheckout('price_annual')}   // Replace 'price_annual' with 
 4. Select a plan and click **"Subscribe Monthly"** or **"Subscribe Annually"**
 
 5. You'll be redirected to Stripe Checkout. Use test card numbers:
+
    - **Success**: `4242 4242 4242 4242`
    - **Decline**: `4000 0000 0000 0002`
    - Use any future expiry date, any 3-digit CVC, and any billing postal code
@@ -133,15 +140,20 @@ To handle subscription events (renewals, cancellations, etc.):
 ## Troubleshooting
 
 **"Stripe failed to load" error:**
+
 - Check that `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is set correctly
 - Verify the key starts with `pk_test_` or `pk_live_`
 
-**"Failed to create checkout session" error:**
+**"Failed to create checkout session" or "No such price" error:**
+
 - Verify `STRIPE_SECRET_KEY` is set in `.env.local`
-- Check the price IDs match your Stripe products
+- Check that `NEXT_PUBLIC_STRIPE_PRICE_MONTHLY` and `NEXT_PUBLIC_STRIPE_PRICE_ANNUAL` are set correctly
+- Ensure the price IDs match your Stripe products (they should start with `price_`)
+- Make sure you've restarted your Next.js development server after updating environment variables
 - Review the console for detailed error messages
 
 **Checkout page doesn't redirect:**
+
 - Ensure your success/cancel URLs are configured correctly in `route.ts`
 - Check browser console for JavaScript errors
 
