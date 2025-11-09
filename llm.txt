@@ -1,0 +1,13 @@
+# cursormobile
+
+cursormobile is a mobile web application that ports Cursor IDE chat functionality to mobile devices, enabling developers to continue coding conversations on their phones away from their computers.
+
+## Core Features
+- Mobile-optimized chat interface mirroring Cursor's design
+- Access to AI coding assistance on the go
+- Synchronization with Cursor IDE chat sessions
+- Responsive design prioritizing mobile usability
+
+## Tech Stack
+- Frontend: Next.js, React, Tailwind CSS
+- Target Platform: Mobile web browsers
