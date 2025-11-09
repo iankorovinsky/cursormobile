@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-10-29.clover',
-});
+// Initialize Stripe lazily to avoid build-time errors when env vars aren't set
+let stripe: Stripe;
+
+function getStripe(): Stripe {
+  if (!stripe) {
+    const apiKey = process.env.STRIPE_SECRET_KEY;
+    if (!apiKey) {
+      throw new Error('STRIPE_SECRET_KEY is not configured');
+    }
+    stripe = new Stripe(apiKey, {
+      apiVersion: '2025-10-29.clover',
+    });
+  }
+  return stripe;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Checkout Session for one-time payment
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
