@@ -119,6 +119,18 @@
       return codeBlocks;
     }
   
+    /** Check if message is from assistant (not user) */
+    function isAssistantMessage(bubble) {
+      // Check if this bubble contains markdown sections (assistant messages usually have these)
+      const hasMarkdown = bubble.querySelector('.anysphere-markdown-container-root, section.markdown-section, .markdown-section');
+      
+      // Check if it's NOT a user input (user messages typically don't have these structures)
+      const isUserInput = bubble.querySelector('.aislash-editor-input, [contenteditable="true"]');
+      
+      // Assistant messages typically have markdown rendering, user messages don't
+      return hasMarkdown && !isUserInput;
+    }
+  
     /** Extract message data from a bubble element */
     function extractMessage(bubble) {
       const id = bubble.id || null;
@@ -140,6 +152,7 @@
         index, 
         text, 
         codeBlocks,
+        isAssistant: isAssistantMessage(bubble),
         timestamp: Date.now() 
       };
     }
@@ -187,13 +200,16 @@
   
     /** Initial scan - collect all existing messages */
     const bubbles = Array.from(document.querySelectorAll('[data-message-index]'));
-    const messages = bubbles.map(extractMessage);
+    const allMessages = bubbles.map(extractMessage);
     
-    // Track seen messages by index to avoid duplicates
-    const seenIndices = new Set(messages.map(m => m.index).filter(Boolean));
+    // Filter to only assistant messages for our collection
+    const messages = allMessages.filter(m => m.isAssistant);
+    
+    // Track seen messages by index to avoid duplicates (including user messages)
+    const seenIndices = new Set(allMessages.map(m => m.index).filter(Boolean));
   
     // show initial messages in console
-    console.warn(`🚀 Cursor Mobile: found ${messages.length} existing message(s)`);
+    console.warn(`🚀 Cursor Mobile: found ${messages.length} assistant message(s) (${allMessages.length} total)`);
   
     // expose for later use
     window.cursorMessages = messages;
@@ -224,6 +240,12 @@
           pollingIntervals.delete(index);
           lastMessageContent.delete(index);
           
+          // Double-check this is an assistant message
+          if (!msg.isAssistant) {
+            console.warn(`⏭️  Skipping completed user message [${msg.index}]`);
+            return;
+          }
+          
           // Update final message in array
           const idx = window.cursorMessages.findIndex(m => m.index === index);
           if (idx !== -1) {
@@ -246,7 +268,7 @@
             console.warn('(empty)');
           }
           
-          // Send via WebSocket if connected
+          // Send via WebSocket if connected (only assistant messages)
           sendMessageViaWS(msg, clientMsgId);
           
           // Resolve active prompt if this was a response to one
@@ -435,8 +457,19 @@
         const index = bubble.getAttribute('data-message-index');
         
         if (!seenIndices.has(index)) {
-          // Brand new message - start polling it
           seenIndices.add(index);
+          
+          // Quick check if this is an assistant message
+          // We do a preliminary check to avoid starting polling for user messages
+          const quickCheck = isAssistantMessage(bubble);
+          
+          if (!quickCheck) {
+            console.warn(`⏭️  Skipping user message [${index}]`);
+            return;
+          }
+          
+          // Brand new assistant message - start polling it
+          console.warn(`👀 Watching assistant message [${index}]`);
           
           // Check if this is a response to an active prompt
           let clientMsgId = null;

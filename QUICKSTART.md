@@ -10,7 +10,7 @@ Control Cursor from anywhere via WebSocket!
 cd relay-server
 python3 -m venv .venv
 source .venv/bin/activate
-pip install "fastapi[standard]" httpx
+pip install "fastapi[standard]" httpx websockets
 fastapi dev server.py
 ```
 
@@ -50,11 +50,13 @@ Type a prompt:
 💬 You: what is 2+2?
 ```
 
-Watch the magic:
-- CLI sends prompt to server
-- Server pushes to Cursor via WebSocket
-- Cursor processes and responds
-- Response flows back to CLI
+Watch the magic - **FULL BIDIRECTIONAL STREAMING**:
+- CLI maintains live WebSocket connection to server
+- You type in CLI → Server → Cursor (via WebSocket injection)
+- Cursor responds → Server → CLI (streamed instantly)
+- **BONUS**: Type directly in Cursor and watch it stream to CLI too!
+
+All messages flow continuously in real-time. The CLI is like a remote terminal for Cursor.
 
 ## 📁 File Structure
 

@@ -3,7 +3,7 @@
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install "fastapi[standard]" httpx
+pip install "fastapi[standard]" httpx websockets
 ```
 
 ## Running the Server
@@ -31,20 +31,26 @@ The server will start on `http://localhost:8000`
 
 ## Using the CLI Client
 
-### Interactive Mode
+### Interactive Mode (Streaming)
 ```bash
 python cli_client.py
 ```
 
-Then type your prompts:
+The CLI maintains a live WebSocket connection and streams ALL Cursor messages in real-time:
 ```
+🔌 Connecting to WebSocket: ws://localhost:8000/ws/cursor-desktop-session
+✅ WebSocket connected
+
 💬 You: what is 2+2?
-📤 Sending prompt: what is 2+2?
-✅ Prompt stored with ID: abc-123
-⏳ Waiting for response from Cursor...
-✅ Received response!
+📤 You: what is 2+2?
 🤖 Cursor: 2+2 equals 4.
+
+💬 You: what is the capital of france?
+📤 You: what is the capital of france?
+🤖 Cursor: The capital of France is **Paris**.
 ```
+
+**Note**: ALL messages from Cursor stream to CLI, even if triggered from Cursor itself!
 
 ### One-shot Mode
 ```bash
