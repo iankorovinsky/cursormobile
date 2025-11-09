@@ -5,6 +5,7 @@ import ChatSidebar from './ChatSidebar';
 import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
 import StripeCheckout from './StripeCheckout';
+import UserProfileIcon from './UserProfileIcon';
 
 export default function ChatInterface() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -70,31 +71,35 @@ export default function ChatInterface() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
-              aria-label="New chat"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-            <button
-              className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
-              aria-label="History"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-            <button
-              className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
-              aria-label="More options"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <button
+                className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
+                aria-label="New chat"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+              <button
+                className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
+                aria-label="History"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+              <button
+                className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
+                aria-label="More options"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </div>
+            <div className="border-l border-[#333333] h-6 mx-1"></div>
+            <UserProfileIcon />
           </div>
         </div>
 
