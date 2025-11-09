@@ -38,15 +38,48 @@ export default function ChatInterface() {
   }, [sendMessage]);
 
   const handleTestNotification = async () => {
+    if (typeof window === 'undefined') {
+      console.error('❌ Cannot show notification: window is not available');
+      return;
+    }
+    
+    console.log('🔔 Test notification button clicked');
+    const hasNotification = typeof window !== 'undefined' && 'Notification' in window;
+    const hasServiceWorker = typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
+    console.log('📊 Current state:', { canNotify, permission, hasNotification, hasServiceWorker });
+    
     if (!canNotify) {
+      console.log('🔐 Permission not granted, requesting...');
       // Request permission first
       const granted = await requestPermission();
+      console.log('📋 Permission request result:', granted);
+      
       if (!granted) {
-        alert('Please enable notifications to test. You may need to enable them in your browser settings.');
+        const currentPermission = typeof window !== 'undefined' && 'Notification' in window 
+          ? Notification.permission 
+          : 'denied';
+        console.error('❌ Permission denied. Current permission:', currentPermission);
+        
+        if (currentPermission === 'denied') {
+          // Check if running as PWA
+          const isPWA = (window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches;
+          
+          if (isPWA) {
+            alert('Notifications are blocked for this PWA.\n\n⚠️ PWAs don\'t always appear in main Settings.\n\nTry this instead:\n1. Open Safari (not the PWA)\n2. Go to Settings > Safari\n3. Tap "Website Settings" or "Advanced"\n4. Find your website URL\n5. Tap it and enable Notifications\n\nThen come back and try again!');
+          } else {
+            alert('Notifications are blocked. Please enable them in:\n\nSettings > Safari > Website Settings > Notifications\n\nOr add the app to your home screen first for better PWA support.');
+          }
+        } else {
+          alert('Please enable notifications to test. You may need to enable them in your browser settings.');
+        }
         return;
       }
+      
+      // Permission was just granted, wait a moment for state to update
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
+    console.log('📤 Attempting to show notification...');
     // Show test notification
     const success = await notify({
       title: 'Test Notification',
@@ -59,6 +92,7 @@ export default function ChatInterface() {
       console.log('✅ Test notification sent successfully!');
     } else {
       console.warn('⚠️ Test notification failed to send');
+      alert('Notification failed to send. Check console for details.');
     }
   };
 
@@ -150,7 +184,13 @@ export default function ChatInterface() {
         </div>
 
         {/* Messages Area */}
-        <ChatMessages chatId={currentChatId} messages={messages} pendingPrompts={pendingPrompts} />
+        <ChatMessages 
+          chatId={currentChatId}
+          messages={messages}
+          pendingPrompts={pendingPrompts}
+          isConnected={isConnected}
+          connectionError={error}
+        />
 
         {/* Input Area */}
         <ChatInput onSendMessage={handleSendMessage} isConnected={isConnected} />

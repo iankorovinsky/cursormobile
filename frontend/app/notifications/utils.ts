@@ -20,9 +20,31 @@ export interface NotificationOptions {
 }
 
 /**
+ * Check if we're on Chrome iOS (which has limited PWA support)
+ */
+export function isChromeIOS(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  return /CriOS/i.test(ua) || (/Chrome/i.test(ua) && /iPhone|iPad|iPod/i.test(ua));
+}
+
+/**
+ * Check if we're on Safari iOS
+ */
+export function isSafariIOS(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  return /iPhone|iPad|iPod/i.test(ua) && !/CriOS|FxiOS|OPiOS/i.test(ua);
+}
+
+/**
  * Check if notifications are supported
  */
 export function isNotificationSupported(): boolean {
+  // Chrome on iOS has very limited PWA support - notifications may not work
+  if (isChromeIOS()) {
+    console.warn('⚠️ Chrome on iOS has limited PWA support. Please use Safari for best experience.');
+  }
   return 'Notification' in window && 'serviceWorker' in navigator;
 }
 
@@ -30,6 +52,9 @@ export function isNotificationSupported(): boolean {
  * Check current notification permission status
  */
 export function getNotificationPermission(): NotificationPermission {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'denied';
+  }
   if (!isNotificationSupported()) {
     return 'denied';
   }
@@ -41,21 +66,40 @@ export function getNotificationPermission(): NotificationPermission {
  * @returns Promise<NotificationPermission>
  */
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    throw new Error('Notification API is not available');
+  }
+  
+  console.log('🔐 requestNotificationPermission called');
+  console.log('📊 Current permission:', Notification.permission);
+  
   if (!isNotificationSupported()) {
+    const hasNotification = 'Notification' in window;
+    const hasServiceWorker = 'serviceWorker' in navigator;
+    console.error('❌ Notifications not supported:', { hasNotification, hasServiceWorker });
     throw new Error('Notifications are not supported in this browser');
   }
 
   if (Notification.permission === 'granted') {
+    console.log('✅ Permission already granted');
     return 'granted';
   }
 
   if (Notification.permission === 'denied') {
+    console.warn('❌ Permission already denied');
     return 'denied';
   }
 
+  console.log('📱 Requesting permission from user...');
   // Request permission (must be called from user interaction on iOS)
-  const permission = await Notification.requestPermission();
-  return permission;
+  try {
+    const permission = await Notification.requestPermission();
+    console.log('📋 User responded with:', permission);
+    return permission;
+  } catch (error) {
+    console.error('❌ Error in Notification.requestPermission:', error);
+    throw error;
+  }
 }
 
 /**
@@ -65,15 +109,28 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
  * @returns Promise<Notification | null>
  */
 export async function showNotification(options: NotificationOptions): Promise<Notification | null> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    console.warn('❌ Notification API is not available');
+    return null;
+  }
+  
   if (!isNotificationSupported()) {
-    console.warn('Notifications are not supported');
+    console.warn('❌ Notifications are not supported in this browser');
+    if (isChromeIOS()) {
+      console.warn('💡 Chrome on iOS has limited PWA support. Please use Safari instead.');
+    }
     return null;
   }
 
   // Check permission
   if (Notification.permission !== 'granted') {
-    console.warn('Notification permission not granted');
+    console.warn('❌ Notification permission not granted. Current permission:', Notification.permission);
     return null;
+  }
+
+  // Warn if using Chrome on iOS
+  if (isChromeIOS()) {
+    console.warn('⚠️ Chrome on iOS: Notifications may not work properly. Safari is recommended for iPhone PWAs.');
   }
 
   // If service worker is available, use it for better background support

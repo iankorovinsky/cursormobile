@@ -107,15 +107,40 @@ self.addEventListener('message', (event) => {
   
   // Handle task complete notifications
   if (event.data && event.data.type === 'TASK_COMPLETE') {
-    self.registration.showNotification('Task Complete! 🎉', {
-      body: 'Your Cursor task has been completed!',
-      tag: 'task-complete',
-      data: {
-        url: '/chat',
-        timestamp: Date.now(),
-      },
-      requireInteraction: false,
-    });
+    console.log('🔔 Service Worker: Task complete notification requested');
+    event.waitUntil(
+      self.registration.showNotification('Task Complete! 🎉', {
+        body: 'Your Cursor task has been completed!',
+        tag: 'task-complete',
+        data: {
+          url: '/chat',
+          timestamp: event.data.timestamp || Date.now(),
+        },
+        requireInteraction: false,
+        vibrate: [200, 100, 200],
+        badge: '/icon-192.png',
+      })
+    );
+  }
+  
+  // Handle WebSocket message forwarding (for background processing)
+  if (event.data && event.data.type === 'WEBSOCKET_MESSAGE') {
+    const messageText = event.data.text || '';
+    if (messageText.includes('[TASK COMPLETE]')) {
+      console.log('🔔 Service Worker: [TASK COMPLETE] detected in forwarded message');
+      event.waitUntil(
+        self.registration.showNotification('Task Complete! 🎉', {
+          body: 'Your Cursor task has been completed!',
+          tag: 'task-complete',
+          data: {
+            url: '/chat',
+            timestamp: Date.now(),
+          },
+          requireInteraction: false,
+          vibrate: [200, 100, 200],
+        })
+      );
+    }
   }
 });
 

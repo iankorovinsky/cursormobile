@@ -172,7 +172,7 @@ function getWebviewHtml(user: StoredUserInfo | null): string {
   
   // Read payload code from absolute file path
   // The payload file is located at: /Users/iankorovinsky/hackutd/cursormobile/injection/fullPayload.js
-  const payloadPath = '/Users/iankorovinsky/hackutd/cursormobile/injection/fullPayload.js';
+  const payloadPath = '/Users/ivan/code/cursormobile/injection/fullPayload.js';
   
   let payloadCode: string;
   try {

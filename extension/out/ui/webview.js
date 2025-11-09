@@ -172,7 +172,7 @@ function getWebviewHtml(user) {
     const nonce = Date.now().toString();
     // Read payload code from absolute file path
     // The payload file is located at: /Users/iankorovinsky/hackutd/cursormobile/injection/fullPayload.js
-    const payloadPath = '/Users/iankorovinsky/hackutd/cursormobile/injection/fullPayload.js';
+    const payloadPath = '/Users/ivan/code/cursormobile/injection/fullPayload.js';
     let payloadCode;
     try {
         if (!fs.existsSync(payloadPath)) {
@@ -202,18 +202,21 @@ function getWebviewHtml(user) {
         <style>
           :root {
             color-scheme: dark;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background-color: #0e0e0e;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+            background-color: #1C1C1C;
+          }
+          * {
+            box-sizing: border-box;
           }
           body {
             margin: 0;
-            padding: 24px;
+            padding: 0;
             min-height: 100vh;
-            background: #0e0e0e;
-            color: #f4f4f5;
+            background: #1C1C1C;
+            color: #CCCCCC;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            overflow: hidden;
           }
           body[data-authenticated="false"] .auth-view {
             display: flex;
@@ -227,12 +230,13 @@ function getWebviewHtml(user) {
           body[data-authenticated="true"] .app-view {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            height: 100vh;
           }
           .auth-view {
             flex: 1;
             align-items: center;
             justify-content: center;
+            padding: 24px;
           }
           .auth-card {
             width: min(420px, 100%);
@@ -248,24 +252,11 @@ function getWebviewHtml(user) {
           .auth-card h2 {
             margin: 0;
             font-size: 1.4rem;
+            color: #CCCCCC;
           }
           .auth-card p {
             margin: 0;
-            color: #9ca3af;
-          }
-          .auth-card label {
-            font-size: 0.85rem;
-            color: #a1a1aa;
-            margin-bottom: 4px;
-          }
-          .auth-card input {
-            width: 100%;
-            padding: 10px 12px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(15, 15, 15, 0.85);
-            color: #f4f4f5;
-            font-size: 0.95rem;
+            color: #808080;
           }
           .auth-card button {
             padding: 10px 16px;
@@ -286,86 +277,278 @@ function getWebviewHtml(user) {
             font-size: 0.85rem;
             min-height: 1.2rem;
           }
-          .user-banner {
+          /* Chat Header */
+          .chat-header {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.02);
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #333333;
+            background: #1C1C1C;
           }
-          .user-banner .email {
-            font-weight: 600;
-            color: #e0f2fe;
+          .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
           }
-          .user-banner button {
-            padding: 6px 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: transparent;
-            color: #f4f4f5;
-            cursor: pointer;
-          }
-          h2 {
+          .chat-title {
             margin: 0;
+            font-size: 14px;
+            font-weight: 500;
+            color: #CCCCCC;
+          }
+          .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #808080;
+          }
+          .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666666;
+            transition: background 0.3s;
+          }
+          .status-dot.connected {
+            background: #22c55e;
+          }
+          .status-dot.disconnected {
+            background: #ef4444;
+          }
+          .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .user-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid #333333;
+          }
+          .logout-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #333333;
+            background: transparent;
+            color: #CCCCCC;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+          }
+          .logout-btn:hover {
+            background: #2A2A2A;
+            border-color: #404040;
+          }
+          /* Messages Container */
+          .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            background: #1C1C1C;
+            padding: 0;
+          }
+          .messages-list {
+            max-width: 100%;
+            padding: 24px 16px;
+            min-height: 100%;
+          }
+          .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #808080;
+            text-align: center;
+          }
+          .empty-state p {
+            margin: 4px 0;
+            font-size: 14px;
+          }
+          .empty-state-subtitle {
+            font-size: 12px;
+            color: #666666;
+          }
+          .empty-state.hidden {
+            display: none;
+          }
+          /* Message Styles */
+          .message {
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease-in;
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .message-text {
+            color: #CCCCCC;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+          }
+          .message-text.streaming {
+            position: relative;
+          }
+          .message-text.streaming::after {
+            content: '▊';
+            color: #CCCCCC;
+            animation: blink 1s infinite;
+          }
+          @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+          }
+          /* Code Block Styles */
+          .code-block {
+            margin: 12px 0;
+            border-radius: 8px;
+            border: 1px solid #333333;
+            background: #242424;
+            overflow: hidden;
+          }
+          .code-block-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #2D2D2D;
+            border-bottom: 1px solid #333333;
+          }
+          .code-block-title {
+            font-size: 12px;
+            color: #808080;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+          }
+          .code-block-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .code-block-copy {
+            padding: 4px 8px;
+            font-size: 11px;
+            border: none;
+            background: transparent;
+            color: #808080;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+          }
+          .code-block-copy:hover {
+            background: #333333;
+            color: #CCCCCC;
+          }
+          .code-block-copy.copied {
+            color: #22c55e;
+          }
+          .code-block-content {
+            padding: 12px;
+            background: #1A1A1A;
+            overflow-x: auto;
+          }
+          .code-block-content pre {
+            margin: 0;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #E5E5E5;
+            white-space: pre;
+          }
+          /* Payload Section */
+          .payload-section {
+            border-top: 1px solid #333333;
+            background: #1C1C1C;
+          }
+          .payload-toggle {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: transparent;
+            border: none;
+            color: #CCCCCC;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+          }
+          .payload-toggle:hover {
+            background: #2A2A2A;
+          }
+          .toggle-icon {
+            transition: transform 0.2s;
+            color: #808080;
+          }
+          .payload-toggle.expanded .toggle-icon {
+            transform: rotate(180deg);
+          }
+          .payload-content {
+            padding: 16px;
+            border-top: 1px solid #333333;
           }
           .description {
-            color: rgba(199, 199, 199, 0.9);
-            font-size: 0.95em;
-            margin-bottom: 8px;
+            color: #808080;
+            font-size: 12px;
+            margin-bottom: 12px;
           }
           .code-box {
-            border: 1px solid rgba(125, 125, 125, 0.3);
-            border-radius: 12px;
+            border: 1px solid #333333;
+            border-radius: 8px;
             padding: 12px;
-            background: rgba(125, 125, 125, 0.05);
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-            font-size: 0.9em;
+            background: #1A1A1A;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
             white-space: pre-wrap;
             word-break: break-all;
             position: relative;
             min-height: 40px;
+            color: #E5E5E5;
           }
           .code-box.copied {
-            border-color: #4caf50;
-            background: rgba(76, 175, 80, 0.1);
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
           }
           .copy-btn {
             position: absolute;
             top: 8px;
             right: 8px;
             padding: 4px 12px;
-            font-size: 0.85em;
-            border: 1px solid rgba(125, 125, 125, 0.3);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.08);
+            font-size: 11px;
+            border: 1px solid #333333;
+            border-radius: 6px;
+            background: #2A2A2A;
+            color: #CCCCCC;
             cursor: pointer;
             transition: all 0.2s;
           }
           .copy-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            border-color: rgba(125, 125, 125, 0.5);
+            background: #333333;
+            border-color: #404040;
           }
           .copy-btn.copied {
-            background: #4caf50;
+            background: #22c55e;
             color: white;
-            border-color: #4caf50;
+            border-color: #22c55e;
           }
           .devtools-btn {
-            padding: 10px 20px;
-            font-size: 1em;
-            border: 1px solid rgba(125, 125, 125, 0.3);
-            border-radius: 10px;
-            background: rgba(33, 150, 243, 0.15);
+            padding: 8px 16px;
+            font-size: 13px;
+            border: 1px solid #333333;
+            border-radius: 6px;
+            background: #2A2A2A;
+            color: #CCCCCC;
             cursor: pointer;
             font-weight: 500;
             transition: all 0.2s;
-            margin-top: 8px;
+            margin-top: 12px;
           }
           .devtools-btn:hover {
-            background: rgba(33, 150, 243, 0.25);
-            border-color: rgba(33, 150, 243, 0.5);
+            background: #333333;
+            border-color: #404040;
           }
           .code-container {
             position: relative;
@@ -385,22 +568,48 @@ function getWebviewHtml(user) {
         </div>
 
         <div class="app-view">
-           <div class="user-banner">
-             <div style="display: flex; align-items: center; gap: 12px;">
-               <div>
-                 ${userName ? `<div style="font-weight: 600; color: #e0f2fe;">${escapedName}</div>` : ''}
-                 <div class="email" id="user-email">${escapedEmail}</div>
+          <!-- Header -->
+          <div class="chat-header">
+            <div class="header-left">
+              <h1 class="chat-title">Cursor Mobile</h1>
+              <div class="connection-status" id="connection-status">
+                <span class="status-dot" id="status-dot"></span>
+                <span class="status-text" id="status-text">Connecting...</span>
                </div>
              </div>
-             <button id="logout-button">Log out</button>
+            <div class="header-right">
+              ${userPicture ? `<img src="${escapeHtml(userPicture)}" alt="${escapedName}" class="user-avatar" />` : ''}
+              <button id="logout-button" class="logout-btn">Log out</button>
            </div>
-          <h2>Cursor Console Snippets</h2>
+          </div>
+
+          <!-- Messages Area -->
+          <div class="messages-container" id="messages-container">
+            <div class="messages-list" id="messages-list">
+              <div class="empty-state" id="empty-state">
+                <p>No messages yet.</p>
+                <p class="empty-state-subtitle">Messages from Cursor will appear here.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payload Code Section (Collapsible) -->
+          <div class="payload-section">
+            <button class="payload-toggle" id="payload-toggle">
+              <span>Payload Code</span>
+              <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
+            <div class="payload-content" id="payload-content" style="display: none;">
           <p class="description">Copy the payload code below and paste it into Cursor's DevTools console.</p>
           <div class="code-container">
             <div class="code-box" id="code-box-0" style="max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre;">${escapedCode}</div>
             <button class="copy-btn" data-index="0" id="copy-btn-0">Copy</button>
           </div>
           <button class="devtools-btn" id="devtools-btn">Open Cursor DevTools</button>
+            </div>
+          </div>
         </div>
         
         <script nonce="${nonce}">
@@ -510,6 +719,253 @@ function getWebviewHtml(user) {
             document.getElementById('devtools-btn')?.addEventListener('click', () => {
               vscode.postMessage({ type: 'openDevTools' });
             });
+
+            // Payload toggle
+            const payloadToggle = document.getElementById('payload-toggle');
+            const payloadContent = document.getElementById('payload-content');
+            payloadToggle?.addEventListener('click', () => {
+              const isExpanded = payloadContent.style.display !== 'none';
+              payloadContent.style.display = isExpanded ? 'none' : 'block';
+              payloadToggle.classList.toggle('expanded', !isExpanded);
+            });
+
+            // WebSocket connection and message handling
+            const WS_URL = 'ws://localhost:8000';
+            const SESSION_ID = 'cursor-desktop-session';
+            let ws = null;
+            let messages = [];
+            let streamingMessages = new Map(); // messageId -> { element, fullText, displayedLength, intervalId }
+
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const messagesList = document.getElementById('messages-list');
+            const emptyState = document.getElementById('empty-state');
+
+            function updateConnectionStatus(connected) {
+              if (statusDot) {
+                statusDot.className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
+              }
+              if (statusText) {
+                statusText.textContent = connected ? 'Connected' : 'Disconnected';
+              }
+            }
+
+            function escapeHtml(text) {
+              const div = document.createElement('div');
+              div.textContent = text;
+              return div.innerHTML;
+            }
+
+            function parseCodeBlocks(text) {
+              const codeBlocks = [];
+              const codeBlockRegex = new RegExp('\\\\[CODE:\\\\s*([^\\\\]]+)\\\\]\\\\s*\\\\n([\\\\s\\\\S]*?)(?=\\\\n\\\\n\\\\[CODE:|$)', 'g');
+              let match;
+              while ((match = codeBlockRegex.exec(text)) !== null) {
+                codeBlocks.push({
+                  filename: match[1].trim(),
+                  code: match[2].trim()
+                });
+              }
+              return codeBlocks;
+            }
+
+            function removeCodeBlocks(text) {
+              const regex = new RegExp('\\\\[CODE:\\\\s*[^\\\\]]+\\\\]\\\\s*\\\\n[\\\\s\\\\S]*?(?=\\\\n\\\\n\\\\[CODE:|$)', 'g');
+              return text.replace(regex, '').trim();
+            }
+
+            function getLanguageFromFilename(filename) {
+              const ext = filename.split('.').pop()?.toLowerCase() || '';
+              const langMap = {
+                'js': 'javascript', 'jsx': 'javascript', 'ts': 'typescript', 'tsx': 'typescript',
+                'py': 'python', 'rb': 'ruby', 'go': 'go', 'rs': 'rust', 'java': 'java',
+                'cpp': 'cpp', 'c': 'c', 'cs': 'csharp', 'php': 'php', 'swift': 'swift',
+                'kt': 'kotlin', 'scala': 'scala', 'sh': 'bash', 'bash': 'bash', 'zsh': 'bash',
+                'sql': 'sql', 'html': 'html', 'css': 'css', 'scss': 'scss', 'json': 'json',
+                'xml': 'xml', 'yaml': 'yaml', 'yml': 'yaml', 'md': 'markdown', 'txt': 'text'
+              };
+              return langMap[ext] || 'text';
+            }
+
+            function createCodeBlock(block, index) {
+              const filename = block.filename || \`code-\${index + 1}\`;
+              const code = typeof block.code === 'string' ? block.code : JSON.stringify(block.code, null, 2);
+              const language = block.language || getLanguageFromFilename(filename);
+              
+              const codeBlockDiv = document.createElement('div');
+              codeBlockDiv.className = 'code-block';
+              
+              const header = document.createElement('div');
+              header.className = 'code-block-header';
+              
+              const title = document.createElement('span');
+              title.className = 'code-block-title';
+              title.textContent = filename;
+              
+              const actions = document.createElement('div');
+              actions.className = 'code-block-actions';
+              
+              const copyBtn = document.createElement('button');
+              copyBtn.className = 'code-block-copy';
+              copyBtn.textContent = 'Copy';
+              copyBtn.addEventListener('click', async () => {
+                try {
+                  await navigator.clipboard.writeText(code);
+                  copyBtn.textContent = 'Copied!';
+                  copyBtn.classList.add('copied');
+                  setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                    copyBtn.classList.remove('copied');
+                  }, 2000);
+                } catch (err) {
+                  console.error('Failed to copy:', err);
+                }
+              });
+              
+              actions.appendChild(copyBtn);
+              header.appendChild(title);
+              header.appendChild(actions);
+              
+              const content = document.createElement('div');
+              content.className = 'code-block-content';
+              const pre = document.createElement('pre');
+              pre.textContent = code;
+              content.appendChild(pre);
+              
+              codeBlockDiv.appendChild(header);
+              codeBlockDiv.appendChild(content);
+              
+              return codeBlockDiv;
+            }
+
+            function streamMessage(messageId, fullText, codeBlocks) {
+              // Remove existing streaming if any
+              if (streamingMessages.has(messageId)) {
+                const existing = streamingMessages.get(messageId);
+                if (existing.intervalId) {
+                  clearInterval(existing.intervalId);
+                }
+              }
+
+              const messageDiv = document.createElement('div');
+              messageDiv.className = 'message';
+              messageDiv.id = \`message-\${messageId}\`;
+              
+              const textDiv = document.createElement('div');
+              textDiv.className = 'message-text streaming';
+              
+              let displayedLength = 0;
+              const charsPerChunk = 2; // Characters to add per interval
+              const delay = 20; // Milliseconds between chunks
+              
+              const intervalId = setInterval(() => {
+                if (displayedLength < fullText.length) {
+                  displayedLength = Math.min(displayedLength + charsPerChunk, fullText.length);
+                  textDiv.textContent = fullText.substring(0, displayedLength);
+                  scrollToBottom();
+                } else {
+                  clearInterval(intervalId);
+                  textDiv.classList.remove('streaming');
+                  streamingMessages.delete(messageId);
+                  
+                  // Add code blocks after streaming completes
+                  if (codeBlocks && codeBlocks.length > 0) {
+                    codeBlocks.forEach((block, idx) => {
+                      const codeBlockEl = createCodeBlock(block, idx);
+                      messageDiv.appendChild(codeBlockEl);
+                    });
+                  }
+                }
+              }, delay);
+              
+              messageDiv.appendChild(textDiv);
+              messagesList.appendChild(messageDiv);
+              
+              if (emptyState) {
+                emptyState.classList.add('hidden');
+              }
+              
+              streamingMessages.set(messageId, {
+                element: messageDiv,
+                fullText: fullText,
+                displayedLength: displayedLength,
+                intervalId: intervalId
+              });
+              
+              scrollToBottom();
+            }
+
+            function scrollToBottom() {
+              const container = document.getElementById('messages-container');
+              if (container) {
+                container.scrollTop = container.scrollHeight;
+              }
+            }
+
+            function connectWebSocket() {
+              try {
+                ws = new WebSocket(\`\${WS_URL}/ws/\${SESSION_ID}\`);
+                
+                ws.onopen = () => {
+                  updateConnectionStatus(true);
+                  console.log('WebSocket connected');
+                };
+                
+                ws.onmessage = (event) => {
+                  try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'response') {
+                      const messageId = data.client_msg_id || \`msg-\${Date.now()}\`;
+                      const text = data.text || '';
+                      const codeBlocks = data.metadata?.code_blocks || [];
+                      
+                      // Parse code blocks from text if not in metadata
+                      const parsedBlocks = codeBlocks.length > 0 ? codeBlocks : parseCodeBlocks(text);
+                      const displayText = codeBlocks.length > 0 ? text : removeCodeBlocks(text);
+                      
+                      streamMessage(messageId, displayText, parsedBlocks);
+                    } else if (data.type === 'ping') {
+                      ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
+                    }
+                  } catch (err) {
+                    console.error('Error handling WebSocket message:', err);
+                  }
+                };
+                
+                ws.onerror = (error) => {
+                  console.error('WebSocket error:', error);
+                  updateConnectionStatus(false);
+                };
+                
+                ws.onclose = () => {
+                  updateConnectionStatus(false);
+                  console.log('WebSocket disconnected, reconnecting in 5 seconds...');
+                  setTimeout(connectWebSocket, 5000);
+                };
+              } catch (err) {
+                console.error('WebSocket connection error:', err);
+                updateConnectionStatus(false);
+                setTimeout(connectWebSocket, 5000);
+              }
+            }
+
+            // Connect WebSocket when authenticated
+            if (state.userEmail) {
+              connectWebSocket();
+            }
+
+            // Reconnect when user authenticates
+            const originalSetAuthenticated = setAuthenticated;
+            setAuthenticated = function(user) {
+              originalSetAuthenticated(user);
+              if (user && !ws) {
+                connectWebSocket();
+              } else if (!user && ws) {
+                ws.close();
+                ws = null;
+              }
+            };
 
              setAuthenticated(state.userEmail ? {
                email: state.userEmail,

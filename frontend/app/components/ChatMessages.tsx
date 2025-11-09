@@ -1,15 +1,18 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ThinkingBlock from './ThinkingBlock';
 import CodeBlock from './CodeBlock';
 import TodoList from './TodoList';
 import type { Message } from '../hooks/useWebSocket';
+import { getRelayServerUrl } from '@/app/lib/config';
 
 interface ChatMessagesProps {
   chatId: string;
   messages: Message[];
   pendingPrompts: Set<string>;
+  isConnected?: boolean;
+  connectionError?: Error | null;
 }
 
 // Utility function to parse code blocks from text (if embedded)
@@ -59,8 +62,17 @@ function removeCodeBlocksFromText(text: string): string {
   return cleaned.trim();
 }
 
-export default function ChatMessages({ chatId, messages, pendingPrompts }: ChatMessagesProps) {
+export default function ChatMessages({ chatId, messages, pendingPrompts, isConnected, connectionError }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [currentUrl, setCurrentUrl] = useState<string>('');
+  const [backendUrl, setBackendUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentUrl(window.location.href);
+      setBackendUrl(getRelayServerUrl());
+    }
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,9 +101,59 @@ export default function ChatMessages({ chatId, messages, pendingPrompts }: ChatM
       <div className="max-w-3xl mx-auto px-2 sm:px-4 py-3 sm:py-6 space-y-4 sm:space-y-6">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full text-[#808080] text-sm">
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-3 max-w-md">
               <p>No messages yet.</p>
               <p className="text-xs">Send a message to get started!</p>
+              {(currentUrl || backendUrl || isConnected !== undefined) && (
+                <div className="mt-4 pt-4 border-t border-[#333333] space-y-3 text-left">
+                  {/* Connection Status */}
+                  {isConnected !== undefined && (
+                    <div>
+                      <span className="text-[#6B6B6B] text-xs">Connection Status:</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className={`text-xs font-medium ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+                          {isConnected ? 'Connected' : 'Disconnected'}
+                        </span>
+                      </div>
+                      {connectionError && (
+                        <div className="mt-1 space-y-1">
+                          <div className="text-xs text-red-400 font-medium">
+                            Error: {connectionError.message}
+                          </div>
+                          <div className="text-xs text-[#6B6B6B]">
+                            Troubleshooting:
+                          </div>
+                          <ul className="text-xs text-[#808080] list-disc list-inside space-y-0.5 ml-2">
+                            <li>Ensure backend is running with: <code className="text-[#CCCCCC]">fastapi dev server.py --host 0.0.0.0 --port 8000</code></li>
+                            <li>Check firewall allows port 8000</li>
+                            <li>Verify Mac and iPhone are on same WiFi</li>
+                            <li>Test backend: <code className="text-[#CCCCCC]">curl http://172.20.10.3:8000/healthz</code></li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {currentUrl && (
+                    <div>
+                      <span className="text-[#6B6B6B] text-xs">Current URL:</span>
+                      <div className="text-[#CCCCCC] text-xs font-mono break-all mt-1">
+                        {currentUrl}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {backendUrl && (
+                    <div>
+                      <span className="text-[#6B6B6B] text-xs">Backend URL:</span>
+                      <div className="text-[#CCCCCC] text-xs font-mono break-all mt-1">
+                        {backendUrl}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

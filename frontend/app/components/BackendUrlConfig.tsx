@@ -88,6 +88,37 @@ export default function BackendUrlConfig() {
                     className="flex-1 p-3 bg-[#0D0D0D] border border-[#333333] rounded text-white text-sm focus:outline-none focus:border-[#4A9EFF]"
                   />
                   <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('http://127.0.0.1:4040/api/tunnels');
+                        if (response.ok) {
+                          const data = await response.json();
+                          const tunnels = data.tunnels || [];
+                          const backendTunnel = tunnels.find((t: any) => 
+                            t.proto === 'https' && t.config?.addr?.includes(':8000')
+                          );
+                          if (backendTunnel) {
+                            const ngrokUrl = backendTunnel.public_url.replace('https://', 'wss://');
+                            setCustomUrl(ngrokUrl);
+                            setRelayServerUrl(ngrokUrl);
+                            setShowSuccess(true);
+                            setTimeout(() => setShowSuccess(false), 3000);
+                          } else {
+                            alert('No ngrok tunnel found for port 8000');
+                          }
+                        } else {
+                          alert('Could not connect to ngrok API. Make sure ngrok is running.');
+                        }
+                      } catch (error) {
+                        alert('Could not detect ngrok URL. This only works when accessing from your Mac.');
+                      }
+                    }}
+                    className="px-3 py-2 bg-[#2A2A2A] hover:bg-[#333333] border border-[#444444] text-white rounded text-xs font-medium transition-colors whitespace-nowrap"
+                    title="Auto-detect ngrok URL (only works from Mac)"
+                  >
+                    Auto-detect
+                  </button>
+                  <button
                     onClick={handleSetCustomUrl}
                     className="px-4 py-2 bg-[#4A9EFF] hover:bg-[#3A8EEF] text-white rounded text-sm font-medium transition-colors"
                   >
