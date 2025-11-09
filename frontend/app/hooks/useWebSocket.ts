@@ -79,6 +79,23 @@ export function useWebSocket({
           console.log('📨 WebSocket message received:', data);
 
           if (data.type === 'message') {
+            // Check if this is an error message (from injection payload timeouts, etc)
+            const isError = data.data.metadata?.error === true;
+            
+            if (isError) {
+              // Log error messages but don't display them in chat
+              console.warn('⚠️ Error message received:', data.data.text);
+              
+              // Still remove from pending prompts since it's a response (even if error)
+              setPendingPrompts((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete(data.data.client_msg_id);
+                return newSet;
+              });
+              
+              return; // Don't add to messages
+            }
+            
             // Assistant response
             const assistantMsg: Message = {
               id: data.data.assistant_msg_id,
