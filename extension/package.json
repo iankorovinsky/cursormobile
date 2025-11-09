@@ -1,0 +1,36 @@
+{
+  "name": "cursor-console-injector",
+  "displayName": "Cursor Console Injector",
+  "description": "Inject code into Cursor's console for local development",
+  "version": "0.0.1",
+  "publisher": "cursormobile",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cursor-console-injector.helloWorld",
+        "title": "Open Console Snippets: Show copyable console.log snippets"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "package": "vsce package",
+    "lint": "echo 'No lint task configured'"
+  },
+  "devDependencies": {
+    "@types/node": "^18.18.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {}
+}
