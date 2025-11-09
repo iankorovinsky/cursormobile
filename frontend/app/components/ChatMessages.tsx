@@ -15,12 +15,18 @@ interface ChatMessagesProps {
 // Utility function to parse code blocks from text (if embedded)
 function parseCodeBlocksFromText(text: string): Array<{ filename: string; code: string; language?: string }> {
   const codeBlocks: Array<{ filename: string; code: string; language?: string }> = [];
-  const codeBlockRegex = /\[CODE:\s*([^\]]+)\]\s*\n([\s\S]*?)(?=\n\n\[CODE:|$)/g;
+  
+  // Pattern 1: [CODE: filename]\ncode content
+  const codeBlockRegex = /\[CODE:\s*([^\]]+)\]\s*\n([\s\S]*?)(?=\n\[CODE:|$)/g;
   
   let match;
   while ((match = codeBlockRegex.exec(text)) !== null) {
     const filename = match[1].trim();
-    const code = match[2].trim();
+    let code = match[2].trim();
+    
+    // Remove any trailing markdown code fence if present
+    code = code.replace(/^```[\w]*\n/, '').replace(/\n```$/, '');
+    
     // Infer language from filename extension
     const extension = filename.split('.').pop()?.toLowerCase() || '';
     const languageMap: Record<string, string> = {
@@ -41,7 +47,16 @@ function parseCodeBlocksFromText(text: string): Array<{ filename: string; code: 
 
 // Utility function to remove code blocks from text
 function removeCodeBlocksFromText(text: string): string {
-  return text.replace(/\[CODE:\s*[^\]]+\]\s*\n[\s\S]*?(?=\n\n\[CODE:|$)/g, '').trim();
+  // Remove [CODE: filename] blocks
+  let cleaned = text.replace(/\[CODE:\s*[^\]]+\]\s*\n[\s\S]*?(?=\n\[CODE:|$)/g, '');
+  
+  // Remove standalone markdown code blocks (```language\ncode\n```)
+  cleaned = cleaned.replace(/```[\w]*\n[\s\S]*?\n```/g, '');
+  
+  // Clean up multiple consecutive newlines
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  
+  return cleaned.trim();
 }
 
 export default function ChatMessages({ chatId, messages, pendingPrompts }: ChatMessagesProps) {
@@ -115,14 +130,16 @@ export default function ChatMessages({ chatId, messages, pendingPrompts }: ChatM
                 {(() => {
                   const codeBlocksFromMetadata = message.metadata?.code_blocks || [];
                   const codeBlocksFromText = parseCodeBlocksFromText(message.text);
-                  const allCodeBlocks = codeBlocksFromMetadata.length > 0 
-                    ? codeBlocksFromMetadata 
-                    : codeBlocksFromText;
                   
-                  // Remove code blocks from text if they were embedded
-                  const displayText = codeBlocksFromMetadata.length > 0 
-                    ? message.text 
-                    : removeCodeBlocksFromText(message.text);
+                  // Always try to parse from text first, then fall back to metadata
+                  const allCodeBlocks = codeBlocksFromText.length > 0 
+                    ? codeBlocksFromText 
+                    : codeBlocksFromMetadata;
+                  
+                  // Always remove code blocks from display text if we found any
+                  const displayText = allCodeBlocks.length > 0
+                    ? removeCodeBlocksFromText(message.text)
+                    : message.text;
                   
                   return (
                     <>
