@@ -32,18 +32,11 @@ export default function StripeCheckout({ onClose }: StripeCheckoutProps) {
         throw new Error('Failed to create checkout session');
       }
 
-      const { sessionId } = await response.json();
+      const { url } = await response.json();
 
       // Redirect to Stripe Checkout
-      const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error('Stripe failed to load');
-      }
-
-      const { error } = await stripe.redirectToCheckout({ sessionId });
-
-      if (error) {
-        setError(error.message || 'An error occurred');
+      if (url) {
+        window.location.href = url;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
