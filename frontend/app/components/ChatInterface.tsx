@@ -7,11 +7,13 @@ import ChatInput from './ChatInput';
 import StripeCheckout from './StripeCheckout';
 import UserProfileIcon from './UserProfileIcon';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useNotifications } from '@/app/notifications/hooks';
 
 export default function ChatInterface() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentChatId, setCurrentChatId] = useState('1');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const { notify, canNotify, requestPermission, permission } = useNotifications();
 
   // WebSocket connection for real-time chat
   const sessionId = 'cursor-desktop-session'; // Must match the session ID used by Cursor injection script
@@ -34,6 +36,31 @@ export default function ChatInterface() {
   const handleSendMessage = useCallback(async (text: string) => {
     await sendMessage(text);
   }, [sendMessage]);
+
+  const handleTestNotification = async () => {
+    if (!canNotify) {
+      // Request permission first
+      const granted = await requestPermission();
+      if (!granted) {
+        alert('Please enable notifications to test. You may need to enable them in your browser settings.');
+        return;
+      }
+    }
+
+    // Show test notification
+    const success = await notify({
+      title: 'Test Notification',
+      body: 'This is a test notification from Cursor Mobile! 🎉',
+      tag: 'test-notification',
+      // Icon is optional - removed to avoid 404 errors
+    });
+
+    if (success) {
+      console.log('✅ Test notification sent successfully!');
+    } else {
+      console.warn('⚠️ Test notification failed to send');
+    }
+  };
 
   // Hardcoded chat data for now (for sidebar)
   const chats = [
@@ -107,6 +134,20 @@ export default function ChatInterface() {
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+              <button
+                onClick={handleTestNotification}
+                className={`p-1.5 hover:bg-[#2A2A2A] rounded transition-colors ${
+                  permission === 'granted' 
+                    ? 'text-[#007ACC] hover:text-[#1A8AD9]' 
+                    : 'text-[#808080] hover:text-[#CCCCCC]'
+                }`}
+                aria-label="Test notification"
+                title={permission === 'granted' ? 'Test notification (enabled)' : 'Test notification (click to enable)'}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
               </button>
               <button
