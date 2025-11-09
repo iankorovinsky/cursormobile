@@ -503,7 +503,8 @@
                 });
                 
                 // Inject and send the prompt
-                await injectAndSend(data.prompt);
+                const promptWithComplete = data.prompt + '\n\nWhen the prompt is finished, write [TASK COMPLETE]';
+                await injectAndSend(promptWithComplete);
                 console.warn(`✅ Injected prompt into Cursor`);
                 
                 // Wait for the response (will be resolved by message polling)
