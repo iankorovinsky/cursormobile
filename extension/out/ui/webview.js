@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openSnippetsPanel = openSnippetsPanel;
 const vscode = __importStar(require("vscode"));
+const fs = __importStar(require("fs"));
 const devtools_opener_1 = require("../devtools-opener");
 const auth0_client_1 = require("../auth0-client");
 const AUTH_STORAGE_KEY = 'cursorConsoleSnippets.userEmail';
@@ -169,24 +170,27 @@ function escapeHtml(value) {
 }
 function getWebviewHtml(user) {
     const nonce = Date.now().toString();
-    const examples = [
-        'console.log("Hello World from Cursor Console Injector!")',
-        'console.log("Current URL:", window.location.href)',
-        'console.log("User Agent:", navigator.userAgent)'
-    ];
+    // Read payload code from absolute file path
+    // The payload file is located at: /Users/iankorovinsky/hackutd/cursormobile/injection/fullPayload.js
+    const payloadPath = '/Users/iankorovinsky/hackutd/cursormobile/injection/fullPayload.js';
+    let payloadCode;
+    try {
+        if (!fs.existsSync(payloadPath)) {
+            throw new Error(`Payload file not found at: ${payloadPath}`);
+        }
+        payloadCode = fs.readFileSync(payloadPath, 'utf8');
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        vscode.window.showErrorMessage(`Failed to read fullPayload.js: ${errorMessage}`);
+        payloadCode = `// Error loading payload: ${errorMessage}`;
+    }
     const userEmail = user?.email || null;
     const userName = user?.name || null;
     const userPicture = user?.picture || null;
     const escapedEmail = escapeHtml(userEmail ?? '');
     const escapedName = escapeHtml(userName ?? '');
-    const snippetHtml = examples
-        .map((code, index) => `
-      <div class="code-container">
-        <div class="code-box" id="code-box-${index}">${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-        <button class="copy-btn" data-index="${index}" id="copy-btn-${index}">Copy</button>
-      </div>
-    `)
-        .join('');
+    const escapedCode = escapeHtml(payloadCode);
     return /* html */ `
     <!DOCTYPE html>
     <html lang="en">
@@ -383,7 +387,6 @@ function getWebviewHtml(user) {
         <div class="app-view">
            <div class="user-banner">
              <div style="display: flex; align-items: center; gap: 12px;">
-               ${userPicture ? `<img src="${escapeHtml(userPicture)}" alt="${escapedName}" style="width: 32px; height: 32px; border-radius: 50%;" />` : ''}
                <div>
                  ${userName ? `<div style="font-weight: 600; color: #e0f2fe;">${escapedName}</div>` : ''}
                  <div class="email" id="user-email">${escapedEmail}</div>
@@ -392,20 +395,23 @@ function getWebviewHtml(user) {
              <button id="logout-button">Log out</button>
            </div>
           <h2>Cursor Console Snippets</h2>
-          <p class="description">Copy a snippet to inject straight into Cursor's DevTools console.</p>
-          ${snippetHtml}
+          <p class="description">Copy the payload code below and paste it into Cursor's DevTools console.</p>
+          <div class="code-container">
+            <div class="code-box" id="code-box-0" style="max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre;">${escapedCode}</div>
+            <button class="copy-btn" data-index="0" id="copy-btn-0">Copy</button>
+          </div>
           <button class="devtools-btn" id="devtools-btn">Open Cursor DevTools</button>
         </div>
         
         <script nonce="${nonce}">
           (function() {
             const vscode = acquireVsCodeApi();
-             const state = {
-               userEmail: ${JSON.stringify(userEmail ?? '')} || null,
-               userName: ${JSON.stringify(userName ?? '')} || null,
-               userPicture: ${JSON.stringify(userPicture ?? '')} || null,
-               examples: ${JSON.stringify(examples)}
-             };
+            const state = {
+              userEmail: ${JSON.stringify(userEmail ?? '')} || null,
+              userName: ${JSON.stringify(userName ?? '')} || null,
+              userPicture: ${JSON.stringify(userPicture ?? '')} || null,
+              payloadCode: ${JSON.stringify(payloadCode)}
+            };
 
             const body = document.body;
             const loginButton = document.getElementById('login-button');
@@ -479,27 +485,26 @@ function getWebviewHtml(user) {
                }
             });
 
-            state.examples.forEach((code, index) => {
-              const copyBtn = document.getElementById('copy-btn-' + index);
-              const codeBox = document.getElementById('code-box-' + index);
+            // Single copy button for payload code
+            const copyBtn = document.getElementById('copy-btn-0');
+            const codeBox = document.getElementById('code-box-0');
 
-              copyBtn?.addEventListener('click', () => {
-                vscode.postMessage({
-                  type: 'copy',
-                  code,
-                  codeIndex: index,
-                });
-
-                copyBtn.textContent = 'Copied!';
-                copyBtn.classList.add('copied');
-                codeBox?.classList.add('copied');
-
-                setTimeout(() => {
-                  copyBtn.textContent = 'Copy';
-                  copyBtn.classList.remove('copied');
-                  codeBox?.classList.remove('copied');
-                }, 2000);
+            copyBtn?.addEventListener('click', () => {
+              vscode.postMessage({
+                type: 'copy',
+                code: state.payloadCode,
+                codeIndex: 0,
               });
+
+              copyBtn.textContent = 'Copied!';
+              copyBtn.classList.add('copied');
+              codeBox?.classList.add('copied');
+
+              setTimeout(() => {
+                copyBtn.textContent = 'Copy';
+                copyBtn.classList.remove('copied');
+                codeBox?.classList.remove('copied');
+              }, 2000);
             });
 
             document.getElementById('devtools-btn')?.addEventListener('click', () => {
