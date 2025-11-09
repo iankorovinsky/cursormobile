@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 interface User {
   name?: string;
@@ -11,18 +12,80 @@ interface User {
 export default function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const hasCheckedCallback = useRef(false);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch('/api/auth/me', { cache: 'no-store' });
+      const data = await res.json();
+      setUser(data && Object.keys(data).length > 0 ? data : null);
+      setIsLoading(false);
+    } catch {
+      setUser(null);
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then(res => res.json())
-      .then(data => {
-        setUser(data);
-        setIsLoading(false);
-      })
-      .catch(() => {
-        setUser(null);
-        setIsLoading(false);
-      });
+    // Check auth state on mount
+    checkAuth();
+
+    // Also check after a short delay in case we just returned from callback
+    // This helps catch the case when the callback has processed but component
+    // mounted before the session was fully established
+    const timeoutId = setTimeout(() => {
+      checkAuth();
+    }, 1000);
+
+    // Check again after 2 seconds (in case backend needs more time)
+    const timeoutId2 = setTimeout(() => {
+      checkAuth();
+    }, 2000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Check auth state when route changes (e.g., after callback redirect)
+    // This handles the case when we return from Auth0 callback
+    if (pathname && !hasCheckedCallback.current) {
+      // Check if we just came from a callback
+      const code = searchParams?.get('code');
+      if (code || pathname.includes('callback')) {
+        hasCheckedCallback.current = true;
+        // Delay to ensure backend has processed the callback
+        setTimeout(() => {
+          checkAuth();
+        }, 300);
+      }
+    }
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
+    // Check auth state when window gains focus (e.g., after redirect)
+    const handleFocus = () => {
+      checkAuth();
+    };
+
+    // Check auth state when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   if (isLoading) {
