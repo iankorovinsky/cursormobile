@@ -105,6 +105,40 @@ export function useWebSocket({
               metadata: data.data.metadata,
             };
 
+            // Check if message contains [TASK COMPLETE] and trigger notification
+            if (data.data.text && data.data.text.includes('[TASK COMPLETE]')) {
+              console.log('✅ [TASK COMPLETE] detected in message!');
+              
+              // Trigger notification via service worker (works in background)
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then((registration) => {
+                  registration.showNotification('Task Complete! 🎉', {
+                    body: 'Your Cursor task has been completed!',
+                    tag: 'task-complete',
+                    data: {
+                      url: '/chat',
+                      timestamp: Date.now(),
+                    },
+                    requireInteraction: false,
+                  }).catch((err) => {
+                    console.error('Error showing notification:', err);
+                  });
+                });
+              }
+              
+              // Also try direct notification (for foreground)
+              if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification('Task Complete! 🎉', {
+                    body: 'Your Cursor task has been completed!',
+                    tag: 'task-complete',
+                  });
+                } catch (err) {
+                  console.error('Error showing direct notification:', err);
+                }
+              }
+            }
+
             setMessages((prev) => {
               // Avoid duplicates by checking if message with same ID already exists
               if (prev.some(m => m.id === assistantMsg.id)) {

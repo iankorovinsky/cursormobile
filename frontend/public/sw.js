@@ -104,5 +104,18 @@ self.addEventListener('message', (event) => {
     const { title, options } = event.data;
     self.registration.showNotification(title, options);
   }
+  
+  // Handle task complete notifications
+  if (event.data && event.data.type === 'TASK_COMPLETE') {
+    self.registration.showNotification('Task Complete! 🎉', {
+      body: 'Your Cursor task has been completed!',
+      tag: 'task-complete',
+      data: {
+        url: '/chat',
+        timestamp: Date.now(),
+      },
+      requireInteraction: false,
+    });
+  }
 });
 
