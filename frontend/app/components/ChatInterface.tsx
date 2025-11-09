@@ -20,7 +20,7 @@ export default function ChatInterface() {
   const currentChat = chats.find(chat => chat.id === currentChatId);
 
   return (
-    <div className="flex h-screen bg-[#1e1e1e] overflow-hidden">
+    <div className="flex h-screen bg-[#1C1C1C] overflow-hidden">
       {/* Sidebar */}
       <ChatSidebar
         isOpen={isSidebarOpen}
@@ -36,29 +36,58 @@ export default function ChatInterface() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#333] bg-[#252526]">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 hover:bg-[#3e3e42] rounded-md transition-colors"
-            aria-label="Toggle sidebar"
-          >
-            <svg
-              className="w-5 h-5 text-[#cccccc]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#333333] bg-[#1C1C1C]">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="lg:hidden p-1.5 hover:bg-[#2A2A2A] rounded transition-colors"
+              aria-label="Toggle sidebar"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-          <h1 className="text-sm font-medium text-[#cccccc] truncate flex-1">
-            {currentChat?.title || 'New Chat'}
-          </h1>
+              <svg
+                className="w-5 h-5 text-[#CCCCCC]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <h1 className="text-sm text-[#CCCCCC] truncate">
+              {currentChat?.title || 'New Chat'}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
+              aria-label="New chat"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            <button
+              className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
+              aria-label="History"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <button
+              className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
+              aria-label="More options"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Messages Area */}

@@ -1,13 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-}
+import ThinkingBlock from './ThinkingBlock';
+import CodeBlock from './CodeBlock';
+import TodoList from './TodoList';
 
 interface ChatMessagesProps {
   chatId: string;
@@ -16,108 +12,97 @@ interface ChatMessagesProps {
 export default function ChatMessages({ chatId }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Hardcoded messages for demo
-  const messages: Message[] = [
-    {
-      id: '1',
-      role: 'user',
-      content: 'How do I use useEffect in React?',
-      timestamp: '10:30 AM',
-    },
-    {
-      id: '2',
-      role: 'assistant',
-      content: `The useEffect hook in React allows you to perform side effects in functional components. Here's a basic example:
-
-\`\`\`javascript
-import { useEffect, useState } from 'react';
-
-function MyComponent() {
-  const [data, setData] = useState(null);
-
-  useEffect(() => {
-    // This runs after render
-    fetchData().then(setData);
-
-    // Cleanup function (optional)
-    return () => {
-      // Cleanup code here
-    };
-  }, []); // Dependencies array
-
-  return <div>{data}</div>;
-}
-\`\`\`
-
-The dependency array controls when the effect runs:
-- Empty array [] = runs once on mount
-- No array = runs on every render
-- [value] = runs when value changes`,
-      timestamp: '10:31 AM',
-    },
-    {
-      id: '3',
-      role: 'user',
-      content: 'Can you show me an example with cleanup?',
-      timestamp: '10:32 AM',
-    },
-  ];
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, []);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-          >
-            {/* Avatar */}
-            <div
-              className={`
-                flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold
-                ${message.role === 'user'
-                  ? 'bg-[#0e639c] text-white'
-                  : 'bg-[#3e3e42] text-[#cccccc]'
-                }
-              `}
-            >
-              {message.role === 'user' ? 'U' : 'AI'}
-            </div>
-
-            {/* Message Content */}
-            <div
-              className={`
-                flex-1 min-w-0
-                ${message.role === 'user' ? 'flex flex-col items-end' : ''}
-              `}
-            >
-              <div
-                className={`
-                  px-4 py-3 rounded-lg max-w-[85%] sm:max-w-[75%]
-                  ${message.role === 'user'
-                    ? 'bg-[#0e639c] text-white'
-                    : 'bg-[#2d2d30] text-[#cccccc]'
-                  }
-                `}
-              >
-                <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                  {message.content}
-                </div>
-              </div>
-              <div className="text-xs text-[#858585] mt-1 px-1">
-                {message.timestamp}
-              </div>
-            </div>
+    <div className="flex-1 overflow-y-auto bg-[#1C1C1C]">
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {/* User Message */}
+        <div className="space-y-2">
+          <div className="text-[#CCCCCC] font-medium text-base">
+            testing
           </div>
-        ))}
+        </div>
+
+        {/* Assistant Response */}
+        <div className="space-y-4">
+          {/* Thinking Section */}
+          <div>
+            <p className="text-[#CCCCCC] text-sm leading-relaxed mb-3">
+              Reviewing the project structure and existing setup to determine what to test.
+            </p>
+            <ThinkingBlock
+              icon="📁"
+              text="Explored 2 files 2 searches"
+            />
+          </div>
+
+          <p className="text-[#CCCCCC] text-sm leading-relaxed">
+            No test files found. Checking components to understand what we're working with:
+          </p>
+
+          <ThinkingBlock
+            icon="📁"
+            text="Explored 3 files"
+          />
+
+          <p className="text-[#CCCCCC] text-sm leading-relaxed">
+            Setting up Jest and React Testing Library, and adding basic tests for the components.
+          </p>
+
+          {/* Todo List */}
+          <TodoList
+            items={[
+              { id: '1', text: 'Install testing dependencies (Jest, React Testing Library, etc.)', completed: true },
+              { id: '2', text: 'Configure Jest for Next.js', completed: false },
+              { id: '3', text: 'Create test files for components', completed: false },
+              { id: '4', text: 'Add test script to package.json', completed: false },
+            ]}
+          />
+
+          <ThinkingBlock
+            icon="��"
+            text="Explored 2 files"
+          />
+
+          <p className="text-[#CCCCCC] text-sm leading-relaxed">
+            Installing testing dependencies and setting up the testing framework:
+          </p>
+
+          {/* Code Block */}
+          <CodeBlock
+            title="Running command: cd, npm install"
+            code={`$ cd /Users/yfengz/Coding/cursormobile/frontend && npm install --save-dev jest @testing-library/react @testing-library/jest-dom @testing-library/user-event jest-environment-jsdom @types/jest`}
+            language="bash"
+            showCancel={true}
+          />
+        </div>
+
+        {/* Streaming message example */}
+        <div className="space-y-3 mt-6 pb-4 border-t border-[#333333] pt-6">
+          <div className="text-[#CCCCCC] font-medium text-base">
+            Add a login page
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-[#CCCCCC] text-sm leading-relaxed">
+              Creating a login page with authentication form
+            </p>
+
+            <ThinkingBlock
+              icon="🔍"
+              text="Exploring authentication patterns"
+              isAnimating={true}
+            />
+          </div>
+        </div>
+
         <div ref={messagesEndRef} />
       </div>
     </div>

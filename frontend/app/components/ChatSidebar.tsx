@@ -30,22 +30,22 @@ export default function ChatSidebar({ isOpen, onClose, chats, currentChatId, onS
       <div
         className={`
           fixed lg:relative inset-y-0 left-0 z-50
-          w-72 bg-[#252526] border-r border-[#333]
+          w-72 bg-[#1C1C1C] border-r border-[#333333]
           transform transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           flex flex-col
         `}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#333]">
-          <h2 className="text-sm font-semibold text-[#cccccc]">Chats</h2>
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#333333]">
+          <h2 className="text-sm text-[#CCCCCC]">Chats</h2>
           <button
             onClick={onClose}
-            className="lg:hidden p-2 hover:bg-[#3e3e42] rounded-md transition-colors"
+            className="lg:hidden p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
             aria-label="Close sidebar"
           >
             <svg
-              className="w-5 h-5 text-[#cccccc]"
+              className="w-4 h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -61,10 +61,10 @@ export default function ChatSidebar({ isOpen, onClose, chats, currentChatId, onS
         </div>
 
         {/* New Chat Button */}
-        <div className="px-3 py-3 border-b border-[#333]">
-          <button className="w-full flex items-center gap-2 px-3 py-2 bg-[#0e639c] hover:bg-[#1177bb] rounded-md transition-colors text-sm text-white font-medium">
+        <div className="p-3 border-b border-[#333333]">
+          <button className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-[#333333] hover:bg-[#2A2A2A] rounded transition-colors text-xs text-[#CCCCCC]">
             <svg
-              className="w-4 h-4"
+              className="w-3.5 h-3.5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -87,21 +87,21 @@ export default function ChatSidebar({ isOpen, onClose, chats, currentChatId, onS
               key={chat.id}
               onClick={() => onSelectChat(chat.id)}
               className={`
-                w-full px-4 py-3 text-left border-b border-[#333]
-                hover:bg-[#2a2d2e] transition-colors
-                ${currentChatId === chat.id ? 'bg-[#37373d]' : ''}
+                w-full px-3 py-2.5 text-left
+                hover:bg-[#2A2A2A] transition-colors
+                ${currentChatId === chat.id ? 'bg-[#2D2D2D]' : ''}
               `}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium text-[#cccccc] truncate">
+                  <h3 className="text-sm text-[#CCCCCC] truncate">
                     {chat.title}
                   </h3>
-                  <p className="text-xs text-[#888888] truncate mt-1">
+                  <p className="text-xs text-[#6B6B6B] truncate mt-0.5">
                     {chat.lastMessage}
                   </p>
                 </div>
-                <span className="text-xs text-[#888888] whitespace-nowrap">
+                <span className="text-xs text-[#6B6B6B] whitespace-nowrap mt-0.5">
                   {chat.timestamp}
                 </span>
               </div>
