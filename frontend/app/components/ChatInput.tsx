@@ -2,9 +2,15 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-export default function ChatInput() {
+interface ChatInputProps {
+  onSendMessage: (message: string) => Promise<void>;
+  isConnected: boolean;
+}
+
+export default function ChatInput({ onSendMessage, isConnected }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [mode, setMode] = useState('Auto');
+  const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -15,11 +21,18 @@ export default function ChatInput() {
     }
   }, [message]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim()) {
-      console.log('Sending message:', message);
-      setMessage('');
+    if (message.trim() && !isSending) {
+      setIsSending(true);
+      try {
+        await onSendMessage(message.trim());
+        setMessage('');
+      } catch (error) {
+        console.error('Error sending message:', error);
+      } finally {
+        setIsSending(false);
+      }
     }
   };
 
@@ -51,23 +64,30 @@ export default function ChatInput() {
 
           <button
             type="submit"
-            disabled={!message.trim()}
+            disabled={!message.trim() || !isConnected || isSending}
             className={`
               absolute right-2 bottom-2 p-2 rounded-md transition-all
-              ${message.trim()
+              ${message.trim() && isConnected && !isSending
                 ? 'bg-white hover:bg-gray-200 text-black'
                 : 'text-[#656565] cursor-not-allowed'
               }
             `}
-            aria-label="Send message"
+            aria-label={isSending ? 'Sending...' : 'Send message'}
+            title={!isConnected ? 'Not connected to server' : ''}
           >
-            <svg
-              className="w-5 h-5"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="12" cy="12" r="10" />
-            </svg>
+            {isSending ? (
+              <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" strokeWidth="2" strokeDasharray="60" strokeDashoffset="20" />
+              </svg>
+            ) : (
+              <svg
+                className="w-5 h-5"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            )}
           </button>
         </div>
 

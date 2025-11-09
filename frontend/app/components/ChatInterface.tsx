@@ -1,16 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ChatSidebar from './ChatSidebar';
 import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
 import StripeCheckout from './StripeCheckout';
 import UserProfileIcon from './UserProfileIcon';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function ChatInterface() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentChatId, setCurrentChatId] = useState('1');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  // WebSocket connection for real-time chat
+  const sessionId = 'cursor-mobile-session'; // You can make this dynamic per chat
+  const { messages, sendMessage, isConnected, error } = useWebSocket({
+    sessionId,
+    onMessage: (message) => {
+      console.log('New message received:', message);
+    },
+    onError: (err) => {
+      console.error('WebSocket error:', err);
+    },
+  });
 
   useEffect(() => {
     const handleOpenCheckout = () => setIsCheckoutOpen(true);
@@ -18,7 +31,11 @@ export default function ChatInterface() {
     return () => window.removeEventListener('openStripeCheckout', handleOpenCheckout);
   }, []);
 
-  // Hardcoded chat data for now
+  const handleSendMessage = useCallback(async (text: string) => {
+    await sendMessage(text);
+  }, [sendMessage]);
+
+  // Hardcoded chat data for now (for sidebar)
   const chats = [
     { id: '1', title: 'React Component Help', lastMessage: 'How do I use useEffect?', timestamp: '2m ago' },
     { id: '2', title: 'TypeScript Types', lastMessage: 'Help with generic types', timestamp: '1h ago' },
@@ -72,6 +89,9 @@ export default function ChatInterface() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Connection Status Indicator */}
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isConnected ? 'Connected' : 'Disconnected'} />
+            {error && <span className="text-xs text-red-400" title={error.message}>⚠️</span>}
             <div className="flex items-center gap-1">
               <button
                 className="p-1.5 hover:bg-[#2A2A2A] rounded transition-colors text-[#808080] hover:text-[#CCCCCC]"
@@ -104,10 +124,10 @@ export default function ChatInterface() {
         </div>
 
         {/* Messages Area */}
-        <ChatMessages chatId={currentChatId} />
+        <ChatMessages chatId={currentChatId} messages={messages} />
 
         {/* Input Area */}
-        <ChatInput />
+        <ChatInput onSendMessage={handleSendMessage} isConnected={isConnected} />
       </div>
 
       {/* Stripe Checkout Modal */}

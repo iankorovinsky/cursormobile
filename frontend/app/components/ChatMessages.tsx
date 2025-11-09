@@ -4,12 +4,14 @@ import { useEffect, useRef } from 'react';
 import ThinkingBlock from './ThinkingBlock';
 import CodeBlock from './CodeBlock';
 import TodoList from './TodoList';
+import type { Message } from '../hooks/useWebSocket';
 
 interface ChatMessagesProps {
   chatId: string;
+  messages: Message[];
 }
 
-export default function ChatMessages({ chatId }: ChatMessagesProps) {
+export default function ChatMessages({ chatId, messages }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -18,90 +20,71 @@ export default function ChatMessages({ chatId }: ChatMessagesProps) {
 
   useEffect(() => {
     scrollToBottom();
-  }, []);
+  }, [messages]);
+
+  const formatTimestamp = (ts: number) => {
+    const date = new Date(ts);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  };
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#1C1C1C]">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-        {/* User Message */}
-        <div className="space-y-2">
-          <div className="text-[#CCCCCC] font-medium text-base">
-            testing
+        {messages.length === 0 && (
+          <div className="flex items-center justify-center h-full text-[#808080] text-sm">
+            <div className="text-center space-y-2">
+              <p>No messages yet.</p>
+              <p className="text-xs">Send a message to get started!</p>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Assistant Response */}
-        <div className="space-y-4">
-          {/* Thinking Section */}
-          <div>
-            <p className="text-[#CCCCCC] text-sm leading-relaxed mb-3">
-              Reviewing the project structure and existing setup to determine what to test.
-            </p>
-            <ThinkingBlock
-              icon="📁"
-              text="Explored 2 files 2 searches"
-            />
+        {messages.map((message, index) => (
+          <div key={message.id} className="space-y-2">
+            {message.type === 'prompt' ? (
+              /* User Message */
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-2">
+                  <div className="text-[#CCCCCC] font-medium text-base flex-1">
+                    {message.text}
+                  </div>
+                  <span className="text-[#808080] text-xs">
+                    {formatTimestamp(message.timestamp)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* Assistant Response */
+              <div className="space-y-3">
+                <div className="text-[#CCCCCC] text-sm leading-relaxed whitespace-pre-wrap">
+                  {message.text}
+                </div>
+                {message.metadata?.thinking && (
+                  <ThinkingBlock
+                    icon="🤔"
+                    text={message.metadata.thinking}
+                  />
+                )}
+                {message.metadata?.code && (
+                  <CodeBlock
+                    title={message.metadata.codeTitle || 'Code'}
+                    code={message.metadata.code}
+                    language={message.metadata.language || 'text'}
+                  />
+                )}
+              </div>
+            )}
           </div>
-
-          <p className="text-[#CCCCCC] text-sm leading-relaxed">
-            No test files found. Checking components to understand what we're working with:
-          </p>
-
-          <ThinkingBlock
-            icon="📁"
-            text="Explored 3 files"
-          />
-
-          <p className="text-[#CCCCCC] text-sm leading-relaxed">
-            Setting up Jest and React Testing Library, and adding basic tests for the components.
-          </p>
-
-          {/* Todo List */}
-          <TodoList
-            items={[
-              { id: '1', text: 'Install testing dependencies (Jest, React Testing Library, etc.)', completed: true },
-              { id: '2', text: 'Configure Jest for Next.js', completed: false },
-              { id: '3', text: 'Create test files for components', completed: false },
-              { id: '4', text: 'Add test script to package.json', completed: false },
-            ]}
-          />
-
-          <ThinkingBlock
-            icon="��"
-            text="Explored 2 files"
-          />
-
-          <p className="text-[#CCCCCC] text-sm leading-relaxed">
-            Installing testing dependencies and setting up the testing framework:
-          </p>
-
-          {/* Code Block */}
-          <CodeBlock
-            title="Running command: cd, npm install"
-            code={`$ cd /Users/yfengz/Coding/cursormobile/frontend && npm install --save-dev jest @testing-library/react @testing-library/jest-dom @testing-library/user-event jest-environment-jsdom @types/jest`}
-            language="bash"
-            showCancel={true}
-          />
-        </div>
-
-        {/* Streaming message example */}
-        <div className="space-y-3 mt-6 pb-4 border-t border-[#333333] pt-6">
-          <div className="text-[#CCCCCC] font-medium text-base">
-            Add a login page
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-[#CCCCCC] text-sm leading-relaxed">
-              Creating a login page with authentication form
-            </p>
-
-            <ThinkingBlock
-              icon="🔍"
-              text="Exploring authentication patterns"
-              isAnimating={true}
-            />
-          </div>
-        </div>
+        ))}
 
         <div ref={messagesEndRef} />
       </div>
