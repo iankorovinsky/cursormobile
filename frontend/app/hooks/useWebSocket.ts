@@ -53,6 +53,37 @@ export function useWebSocket({
     }
     return [];
   }, [sessionId]);
+  
+  // Helper functions to track notified messages
+  const getNotifiedMessageIds = useCallback((): Set<string> => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const stored = localStorage.getItem(`notified_messages_${sessionId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new Set(parsed);
+      }
+    } catch (error) {
+      console.error('❌ Error loading notified messages:', error);
+    }
+    return new Set();
+  }, [sessionId]);
+  
+  const markMessageAsNotified = useCallback((messageId: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const notifiedIds = getNotifiedMessageIds();
+      notifiedIds.add(messageId);
+      localStorage.setItem(`notified_messages_${sessionId}`, JSON.stringify(Array.from(notifiedIds)));
+    } catch (error) {
+      console.error('❌ Error marking message as notified:', error);
+    }
+  }, [sessionId, getNotifiedMessageIds]);
+  
+  const isMessageNotified = useCallback((messageId: string): boolean => {
+    const notifiedIds = getNotifiedMessageIds();
+    return notifiedIds.has(messageId);
+  }, [getNotifiedMessageIds]);
 
   const [messages, setMessages] = useState<Message[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -72,6 +103,25 @@ export function useWebSocket({
   const [error, setError] = useState<Error | null>(null);
   const [pendingPrompts, setPendingPrompts] = useState<Set<string>>(new Set());
   
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const shouldReconnectRef = useRef(true);
+  // Use refs to avoid recreating WebSocket connection when callbacks change
+  const onMessageRef = useRef(onMessage);
+  const onErrorRef = useRef(onError);
+  // Use refs for messages and isConnected to avoid recreating connection on state changes
+  const messagesRef = useRef(messages);
+  const isConnectedRef = useRef(isConnected);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  
+  useEffect(() => {
+    isConnectedRef.current = isConnected;
+  }, [isConnected]);
+  
   // Save messages to localStorage whenever they change
   useEffect(() => {
     if (typeof window !== 'undefined' && messages.length > 0) {
@@ -82,13 +132,6 @@ export function useWebSocket({
       }
     }
   }, [messages, sessionId]);
-
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const shouldReconnectRef = useRef(true);
-  // Use refs to avoid recreating WebSocket connection when callbacks change
-  const onMessageRef = useRef(onMessage);
-  const onErrorRef = useRef(onError);
 
   // Update refs when callbacks change
   useEffect(() => {
@@ -117,22 +160,10 @@ export function useWebSocket({
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('📨 WebSocket message received:', data);
           
-          // Forward message to service worker for background processing
-          // This ensures notifications work even when app is backgrounded
-          if ('serviceWorker' in navigator && data.type === 'message' && data.data?.text) {
-            navigator.serviceWorker.ready.then((registration) => {
-              if (registration.active) {
-                registration.active.postMessage({
-                  type: 'WEBSOCKET_MESSAGE',
-                  text: data.data.text,
-                  timestamp: Date.now(),
-                });
-              }
-            }).catch((err) => {
-              // Silently fail - service worker might not be ready
-            });
+          // Only log non-ping messages to reduce console noise
+          if (data.type !== 'ping') {
+            console.log('📨 WebSocket message received:', data);
           }
 
           if (data.type === 'message') {
@@ -172,39 +203,42 @@ export function useWebSocket({
               
               // Check if message contains [TASK COMPLETE] and trigger notification
               // Do this after adding to state so we have the full message
-              if (data.data.text && data.data.text.includes('[TASK COMPLETE]')) {
+              // Only notify if this message hasn't been notified before
+              if (data.data.text && data.data.text.includes('[TASK COMPLETE]') && !isMessageNotified(assistantMsg.id)) {
                 console.log('✅ [TASK COMPLETE] detected in message!');
                 
-                // Always use service worker for notifications (works in background)
-                // Send message to service worker which can show notification even when app is backgrounded
+                // Mark message as notified BEFORE showing notification to prevent duplicates
+                markMessageAsNotified(assistantMsg.id);
+                
+                // Use service worker for notifications (works in background and foreground)
+                // Only send ONE notification via service worker
                 if ('serviceWorker' in navigator) {
-                  // Method 1: Send message to service worker (most reliable for background)
                   navigator.serviceWorker.ready.then((registration) => {
-                    // Send message to service worker
+                    // Send TASK_COMPLETE message to service worker with message ID
+                    // Service worker will check if already notified before showing
                     if (registration.active) {
                       registration.active.postMessage({
                         type: 'TASK_COMPLETE',
+                        messageId: assistantMsg.id,
                         timestamp: Date.now(),
                       });
                     }
-                    
-                    // Also show notification directly via service worker
-                    registration.showNotification('Task Complete! 🎉', {
-                      body: 'Your Cursor task has been completed!',
-                      tag: 'task-complete',
-                      data: {
-                        url: '/chat',
-                        timestamp: Date.now(),
-                      },
-                      requireInteraction: false,
-                    }).catch((err) => {
-                      console.error('Error showing notification:', err);
-                    });
                   }).catch((err) => {
                     console.error('Service worker not ready:', err);
+                    // Fallback: try direct notification if service worker fails
+                    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                      try {
+                        new Notification('Task Complete! 🎉', {
+                          body: 'Your Cursor task has been completed!',
+                          tag: 'task-complete',
+                        });
+                      } catch (notifErr) {
+                        console.error('Error showing direct notification:', notifErr);
+                      }
+                    }
                   });
-                  
-                  // Method 2: Also try direct notification (fallback for foreground)
+                } else {
+                  // Fallback: direct notification if service worker not available
                   if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                     try {
                       new Notification('Task Complete! 🎉', {
@@ -384,55 +418,71 @@ export function useWebSocket({
     setMessages([]);
     if (typeof window !== 'undefined') {
       localStorage.removeItem(`messages_${sessionId}`);
+      // Also clear notified messages when clearing all messages
+      localStorage.removeItem(`notified_messages_${sessionId}`);
     }
   }, [sessionId]);
   
   // Check for [TASK COMPLETE] in restored messages on mount
   useEffect(() => {
     if (messages.length > 0) {
-      // Check if any message contains [TASK COMPLETE]
-      const hasTaskComplete = messages.some(msg => 
-        msg.type === 'assistant' && msg.text && msg.text.includes('[TASK COMPLETE]')
+      // Find messages with [TASK COMPLETE] that haven't been notified yet
+      const taskCompleteMessages = messages.filter(msg => 
+        msg.type === 'assistant' && 
+        msg.text && 
+        msg.text.includes('[TASK COMPLETE]') &&
+        !isMessageNotified(msg.id)
       );
       
-      if (hasTaskComplete) {
-        console.log('✅ [TASK COMPLETE] found in messages');
-        // Check if we've already notified for this session
-        const lastNotified = localStorage.getItem(`task_complete_notified_${sessionId}`);
-        const now = Date.now();
-        if (!lastNotified || (now - parseInt(lastNotified)) > 60000) { // Don't notify if notified in last minute
-          // Trigger notification for restored task complete
+      if (taskCompleteMessages.length > 0) {
+        console.log('✅ [TASK COMPLETE] found in messages, notifying for', taskCompleteMessages.length, 'unnotified message(s)');
+        
+        // Notify for each unnotified message (usually just one)
+        taskCompleteMessages.forEach(msg => {
+          // Mark as notified BEFORE showing notification to prevent duplicates
+          markMessageAsNotified(msg.id);
+          
+          // Use the same notification path as WebSocket messages (service worker with messageId)
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.ready.then((registration) => {
-              registration.showNotification('Task Complete! 🎉', {
-                body: 'Your Cursor task has been completed!',
-                tag: 'task-complete',
-                data: {
-                  url: '/chat',
+              if (registration.active) {
+                registration.active.postMessage({
+                  type: 'TASK_COMPLETE',
+                  messageId: msg.id,
                   timestamp: Date.now(),
-                },
-                requireInteraction: false,
-              }).catch((err) => {
-                console.error('Error showing notification:', err);
-              });
+                });
+              }
+            }).catch((err) => {
+              console.error('Service worker not ready:', err);
+              // Fallback: direct notification if service worker fails
+              if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                  new Notification('Task Complete! 🎉', {
+                    body: 'Your Cursor task has been completed!',
+                    tag: `task-complete-${msg.id}`,
+                  });
+                } catch (notifErr) {
+                  console.error('Error showing direct notification:', notifErr);
+                }
+              }
             });
-          }
-          
-          // Also try direct notification
-          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-            try {
-              new Notification('Task Complete! 🎉', {
-                body: 'Your Cursor task has been completed!',
-                tag: 'task-complete',
-              });
-              localStorage.setItem(`task_complete_notified_${sessionId}`, now.toString());
-            } catch (err) {
-              console.error('Error showing direct notification:', err);
+          } else {
+            // Fallback: direct notification if service worker not available
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              try {
+                new Notification('Task Complete! 🎉', {
+                  body: 'Your Cursor task has been completed!',
+                  tag: `task-complete-${msg.id}`,
+                });
+              } catch (err) {
+                console.error('Error showing direct notification:', err);
+              }
             }
           }
-        }
+        });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount - check initial messages
   
   useEffect(() => {
@@ -444,9 +494,10 @@ export function useWebSocket({
       if (document.hidden) {
         console.log('📱 App went to background - saving state');
         // Save current state when going to background
-        if (typeof window !== 'undefined' && messages.length > 0) {
+        // Use ref to get latest messages without causing effect re-run
+        if (typeof window !== 'undefined' && messagesRef.current.length > 0) {
           try {
-            localStorage.setItem(`messages_${sessionId}`, JSON.stringify(messages));
+            localStorage.setItem(`messages_${sessionId}`, JSON.stringify(messagesRef.current));
           } catch (error) {
             console.error('❌ Error saving messages on background:', error);
           }
@@ -454,38 +505,68 @@ export function useWebSocket({
       } else {
         console.log('📱 App came to foreground - restoring state');
         // Restore messages when coming back to foreground if they're empty
-        if (messages.length === 0) {
+        // Use ref to check current state without causing effect re-run
+        if (messagesRef.current.length === 0) {
           const restored = loadMessagesFromStorage();
           if (restored.length > 0) {
             console.log('📦 Restoring messages from storage:', restored.length);
             setMessages(restored);
             
-            // Check for [TASK COMPLETE] in restored messages
-            const hasTaskComplete = restored.some(msg => 
-              msg.type === 'assistant' && msg.text && msg.text.includes('[TASK COMPLETE]')
+            // Check for [TASK COMPLETE] in restored messages that haven't been notified
+            const taskCompleteMessages = restored.filter(msg => 
+              msg.type === 'assistant' && 
+              msg.text && 
+              msg.text.includes('[TASK COMPLETE]') &&
+              !isMessageNotified(msg.id)
             );
             
-            if (hasTaskComplete && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-              // Only notify if we haven't already (check if notification was shown recently)
-              const lastNotified = localStorage.getItem(`task_complete_notified_${sessionId}`);
-              const now = Date.now();
-              if (!lastNotified || (now - parseInt(lastNotified)) > 60000) { // Don't notify if notified in last minute
-                try {
-                  new Notification('Task Complete! 🎉', {
-                    body: 'Your Cursor task has been completed!',
-                    tag: 'task-complete',
+            if (taskCompleteMessages.length > 0) {
+              // Notify for each unnotified message using service worker (same path as WebSocket)
+              taskCompleteMessages.forEach(msg => {
+                // Mark as notified BEFORE showing notification to prevent duplicates
+                markMessageAsNotified(msg.id);
+                
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.ready.then((registration) => {
+                    if (registration.active) {
+                      registration.active.postMessage({
+                        type: 'TASK_COMPLETE',
+                        messageId: msg.id,
+                        timestamp: Date.now(),
+                      });
+                    }
+                  }).catch((err) => {
+                    console.error('Service worker not ready:', err);
+                    // Fallback: direct notification if service worker fails
+                    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                      try {
+                        new Notification('Task Complete! 🎉', {
+                          body: 'Your Cursor task has been completed!',
+                          tag: `task-complete-${msg.id}`,
+                        });
+                      } catch (notifErr) {
+                        console.error('Error showing direct notification:', notifErr);
+                      }
+                    }
                   });
-                  localStorage.setItem(`task_complete_notified_${sessionId}`, now.toString());
-                } catch (err) {
-                  console.error('Error showing notification:', err);
+                } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                  // Fallback: direct notification if service worker not available
+                  try {
+                    new Notification('Task Complete! 🎉', {
+                      body: 'Your Cursor task has been completed!',
+                      tag: `task-complete-${msg.id}`,
+                    });
+                  } catch (err) {
+                    console.error('Error showing direct notification:', err);
+                  }
                 }
-              }
+              });
             }
           }
         }
         
-        // Reconnect if disconnected
-        if (!isConnected && wsRef.current?.readyState !== WebSocket.OPEN) {
+        // Reconnect if disconnected - use ref to check state without causing effect re-run
+        if (!isConnectedRef.current && wsRef.current?.readyState !== WebSocket.OPEN) {
           console.log('🔄 Reconnecting WebSocket after coming to foreground');
           connect();
         }
@@ -505,7 +586,7 @@ export function useWebSocket({
         wsRef.current = null;
       }
     };
-  }, [connect, messages, isConnected, sessionId, loadMessagesFromStorage]);
+  }, [connect, sessionId, loadMessagesFromStorage]); // Removed messages and isConnected from deps
 
   return {
     messages,

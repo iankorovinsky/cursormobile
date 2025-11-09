@@ -98,6 +98,10 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
+// Track notified message IDs in service worker to prevent duplicates
+// This is a simple in-memory cache (will reset on service worker restart, but that's okay)
+const notifiedMessageIds = new Set();
+
 // Message event - handle messages from main thread
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
@@ -107,40 +111,41 @@ self.addEventListener('message', (event) => {
   
   // Handle task complete notifications
   if (event.data && event.data.type === 'TASK_COMPLETE') {
-    console.log('🔔 Service Worker: Task complete notification requested');
+    const messageId = event.data.messageId;
+    
+    // Double-check: don't notify if we've already notified for this message ID
+    // (Main thread should have checked, but this prevents service worker duplicates)
+    if (messageId && notifiedMessageIds.has(messageId)) {
+      console.log('🔔 Service Worker: Skipping duplicate notification for message', messageId);
+      return;
+    }
+    
+    // Mark as notified
+    if (messageId) {
+      notifiedMessageIds.add(messageId);
+      // Limit cache size to prevent memory issues (keep last 100)
+      if (notifiedMessageIds.size > 100) {
+        const firstId = notifiedMessageIds.values().next().value;
+        notifiedMessageIds.delete(firstId);
+      }
+    }
+    
+    console.log('🔔 Service Worker: Task complete notification', messageId ? `for message ${messageId}` : '');
+    
     event.waitUntil(
       self.registration.showNotification('Task Complete! 🎉', {
         body: 'Your Cursor task has been completed!',
-        tag: 'task-complete',
+        tag: messageId ? `task-complete-${messageId}` : 'task-complete', // Use message ID in tag for browser-level deduplication
         data: {
           url: '/chat',
           timestamp: event.data.timestamp || Date.now(),
+          messageId: messageId,
         },
         requireInteraction: false,
         vibrate: [200, 100, 200],
         badge: '/icon-192.png',
       })
     );
-  }
-  
-  // Handle WebSocket message forwarding (for background processing)
-  if (event.data && event.data.type === 'WEBSOCKET_MESSAGE') {
-    const messageText = event.data.text || '';
-    if (messageText.includes('[TASK COMPLETE]')) {
-      console.log('🔔 Service Worker: [TASK COMPLETE] detected in forwarded message');
-      event.waitUntil(
-        self.registration.showNotification('Task Complete! 🎉', {
-          body: 'Your Cursor task has been completed!',
-          tag: 'task-complete',
-          data: {
-            url: '/chat',
-            timestamp: Date.now(),
-          },
-          requireInteraction: false,
-          vibrate: [200, 100, 200],
-        })
-      );
-    }
   }
 });
 
