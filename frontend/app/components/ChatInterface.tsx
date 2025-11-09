@@ -1,13 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ChatSidebar from './ChatSidebar';
 import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
+import StripeCheckout from './StripeCheckout';
 
 export default function ChatInterface() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentChatId, setCurrentChatId] = useState('1');
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenCheckout = () => setIsCheckoutOpen(true);
+    window.addEventListener('openStripeCheckout', handleOpenCheckout);
+    return () => window.removeEventListener('openStripeCheckout', handleOpenCheckout);
+  }, []);
 
   // Hardcoded chat data for now
   const chats = [
@@ -96,6 +104,11 @@ export default function ChatInterface() {
         {/* Input Area */}
         <ChatInput />
       </div>
+
+      {/* Stripe Checkout Modal */}
+      {isCheckoutOpen && (
+        <StripeCheckout onClose={() => setIsCheckoutOpen(false)} />
+      )}
     </div>
   );
 }
